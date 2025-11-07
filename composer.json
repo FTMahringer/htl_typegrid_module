@@ -4,10 +4,5 @@
   "type": "drupal-module",
   "license": "MIT",
   "require": {},
-  "extra": {
-    "branch-alias": {
-      "dev-main": "1.x-dev"
-    }
-  },
   "version": "1.0"
 }
