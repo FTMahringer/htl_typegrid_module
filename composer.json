@@ -1,14 +1,15 @@
 {
-    "name": "ftmahringer/htl_typegrid_module",
-    "description": "Drupal module to display a Type in a 3x2 grid",
-    "type": "drupal-module",
-    "license": "MIT",
-    "authors": [
-        {
-            "name": "Fynn Mahringer",
-            "email": "fynn.mahringer@outlook.com"
-        }
-    ],
-    "minimum-stability": "stable",
-    "require": {}
+  "name": "ftmahringer/htl_typegrid_module",
+  "description": "Drupal module to display a Type in a 3x2 grid",
+  "type": "drupal-module",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Fynn Mahringer",
+      "email": "fynn.mahringer@outlook.com"
+    }
+  ],
+  "minimum-stability": "stable",
+  "require": {},
+  "version": "1.2"
 }
