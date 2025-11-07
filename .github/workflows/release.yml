@@ -87,3 +87,6 @@ jobs:
           echo "Creating GitHub release for version $new_version"
           gh release create "v$new_version" --title "Release $new_version" --notes "Automated release for version $new_version"
           echo "Release $new_version created successfully"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  
