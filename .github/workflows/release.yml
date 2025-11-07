@@ -36,21 +36,29 @@ jobs:
 
           echo "Current version: $current_version"
           
-          # Hole den Release-Typ aus den Eingabewerten
-          release_type="${{ github.event.inputs.release_type }}"
-          echo "Release type: $release_type"
+          # Hole die Commit-Nachricht
+          commit_message="${{ github.event.head_commit.message }}"
+          echo "Commit message: $commit_message"
           
-          if [[ "$release_type" == "release" ]]; then
+          # Variablen für Release und Upgrade
+          release_type="none"
+          
+          # Entweder "release" oder "vUpgrade"
+          if [[ "$commit_message" == *"+rel"* ]]; then
+            release_type="release"
             minor_version=$((minor_version + 1))  # Erhöhe die Minor-Version
             new_version="${major_version}.${minor_version}.0"
             echo "Creating new release: $new_version"
-          elif [[ "$release_type" == "vUpgrade" ]]; then
-            # Upgrade der aktuellen Version (hier wird auch die Minor-Version erhöht)
+          elif [[ "$commit_message" == *"+vUpgrade"* ]]; then
+            release_type="vUpgrade"
             new_version="${major_version}.$((minor_version + 1)).0"
             echo "Upgrading to version: $new_version"
-          else
-            echo "Unknown release type. Exiting."
-            exit 1
+          fi
+
+          # Falls kein `release` oder `vUpgrade` im Commit, einfach abbrechen
+          if [[ "$release_type" == "none" ]]; then
+            echo "No version bump detected, skipping."
+            exit 0
           fi
 
           # Tagging der neuen Version
