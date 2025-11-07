@@ -1,16 +1,21 @@
 name: Version Update and Release
 
 on:
+  # Manuell starten
   workflow_dispatch:
     inputs:
       release_type:
-        description: 'Type of release (release or vUpgrade)'
+        description: 'release = y.x+1 | vUpgrade = (y+1).0'
         required: true
         default: 'release'
         type: choice
-        options:
-          - release
-          - vUpgrade
+        options: [release, vUpgrade]
+
+  # Optional: per Commit auslösen, wenn die Message -release oder -vUpgrade enthält
+  push:
+    branches: [ main, master ]
+    paths-ignore:
+      - '**.md'
 
 permissions:
   contents: write
@@ -20,49 +25,98 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0   # alle Tags sehen
 
-      - name: Increment Version and Create Release
-        id: version_update
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set release_type (from dispatch or commit message)
+        id: mode
         run: |
-          # Hole die aktuelle Version (verwende die bestehende Version aus `composer.json` oder Git-Tag)
-          current_version=$(git describe --tags --abbrev=0 || echo "0.0.0")
-          major_version=$(echo $current_version | cut -d'.' -f1)
-          minor_version=$(echo $current_version | cut -d'.' -f2)
-          patch_version=$(echo $current_version | cut -d'.' -f3)
+          # Standard: aus workflow_dispatch
+          TYPE="${{ github.event.inputs.release_type }}"
 
-          echo "Aktuelle Version: $current_version"
-
-          # Version erhöhen, abhängig vom Release-Typ
-          if [ "${{ github.event.inputs.release_type }}" == "release" ]; then
-            # Normale Release: Minor Version erhöhen
-            new_version="${major_version}.$((minor_version + 1)).0"
-          elif [ "${{ github.event.inputs.release_type }}" == "vUpgrade" ]; then
-            # vUpgrade: Major Version erhöhen und Minor auf 0 setzen
-            new_version="$((major_version + 1)).0.0"
-          else
-            echo "Fehler: Ungültiger Release-Typ."
-            exit 1
+          # Wenn Push: aus Commit-Message ableiten
+          if [ "${{ github.event_name }}" = "push" ]; then
+            MSG="${{ github.event.head_commit.message }}"
+            if echo "$MSG" | grep -qi -- "-vUpgrade"; then
+              TYPE="vUpgrade"
+            elif echo "$MSG" | grep -qi -- "-release"; then
+              TYPE="release"
+            fi
           fi
 
-          echo "Neue Version: $new_version"
-          
-          # Tag erstellen
-          git tag "$new_version"
-          git push origin "$new_version"
-          
-          # Release erstellen
-          gh release create "$new_version" --title "Release $new_version" --notes "Automatisch generierter Release."
-          
-      - name: Commit Version Update
+          if [ -z "$TYPE" ]; then TYPE="release"; fi
+          echo "release_type=$TYPE" >> "$GITHUB_OUTPUT"
+
+      - name: Compute next version (y.x scheme) and tag
+        id: version
+        env:
+          RELEASE_TYPE: ${{ steps.mode.outputs.release_type }}
         run: |
-          # Commit der neuen Version in composer.json (falls erforderlich)
-          jq --arg version "$new_version" '.version = $version' composer.json > temp.json && mv temp.json composer.json
-          git add composer.json
-          git commit -m "Update version to $new_version"
-          git push origin main
+          # letzte Version im Format y.x finden (z.B. 3.12)
+          last_tag=$(git tag --list --sort=-v:refname | grep -E '^[0-9]+\.[0-9]+$' | head -n1)
+          if [ -z "$last_tag" ]; then last_tag="0.0"; fi
+
+          y=${last_tag%%.*}
+          x=${last_tag##*.}
+
+          if [ "$RELEASE_TYPE" = "vUpgrade" ]; then
+            new_version="$((y+1)).0"
+          else
+            new_version="${y}.$((x+1))"
+          fi
+
+          echo "last_tag=$last_tag"
+          echo "new_version=$new_version"
+
+          # Export als Output für folgende Steps
+          echo "new_version=$new_version" >> "$GITHUB_OUTPUT"
+
+      - name: Update composer.json (falls vorhanden) und committen
+        env:
+          NEW_VERSION: ${{ steps.version.outputs.new_version }}
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y jq
+
+          # Git-Author setzen (fix für "Author identity unknown")
+          git config user.name  "${GITHUB_ACTOR}"
+          git config user.email "${GITHUB_ACTOR}@users.noreply.github.com"
+
+          changed=0
+          if [ -f composer.json ]; then
+            jq --arg v "$NEW_VERSION" '.version = $v' composer.json > composer.tmp && mv composer.tmp composer.json
+            git add composer.json
+            changed=1
+          fi
+
+          if [ $changed -eq 1 ]; then
+            git commit -m "chore: bump to ${NEW_VERSION} (${{ steps.mode.outputs.release_type }})"
+            git push
+          else
+            echo "composer.json nicht vorhanden oder keine Änderung."
+          fi
+
+      - name: Create tag and push
+        env:
+          NEW_VERSION: ${{ steps.version.outputs.new_version }}
+        run: |
+          # Falls Tag schon existiert -> abbrechen (idempotent)
+          if git rev-parse "refs/tags/${NEW_VERSION}" >/dev/null 2>&1; then
+            echo "Tag ${NEW_VERSION} existiert bereits – überspringe."
+            exit 0
+          fi
+          git tag "$NEW_VERSION"
+          git push origin "$NEW_VERSION"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NEW_VERSION: ${{ steps.version.outputs.new_version }}
+        run: |
+          # gh ist auf ubuntu-latest vorinstalliert; zur Sicherheit Version ausgeben
+          gh --version
+          gh release create "$NEW_VERSION" \
+            --title "Release $NEW_VERSION" \
+            --notes "Automatischer ${ { steps.mode.outputs.release_type } }-Release für Drupal Modul."
