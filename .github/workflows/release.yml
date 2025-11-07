@@ -27,6 +27,8 @@ jobs:
 
       - name: Increment Version and Create Release
         id: version_update
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Hole die aktuelle Version (verwende die bestehende Version aus `composer.json` oder Git-Tag)
           current_version=$(git describe --tags --abbrev=0 || echo "0.0.0")
