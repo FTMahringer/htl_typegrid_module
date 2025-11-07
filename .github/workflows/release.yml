@@ -1,21 +1,16 @@
 name: Version Update and Release
 
 on:
-  # Manuell starten
   workflow_dispatch:
     inputs:
       release_type:
-        description: 'release = y.x+1 | vUpgrade = (y+1).0'
+        description: 'Type of release (release or vUpgrade)'
         required: true
         default: 'release'
         type: choice
-        options: [release, vUpgrade]
-
-  # Optional: per Commit auslösen, wenn die Message -release oder -vUpgrade enthält
-  push:
-    branches: [ main, master ]
-    paths-ignore:
-      - '**.md'
+        options:
+          - release
+          - vUpgrade
 
 permissions:
   contents: write
@@ -25,98 +20,77 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      # Step 1: Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v2
         with:
-          fetch-depth: 0   # alle Tags sehen
+          fetch-depth: 0
 
-      - name: Set release_type (from dispatch or commit message)
-        id: mode
+      # Step 2: Increment Version
+      - name: Increment Version
+        id: version_increment
         run: |
-          # Standard: aus workflow_dispatch
-          TYPE="${{ github.event.inputs.release_type }}"
+          # Hole die aktuelle Version (verwende die bestehende Version aus `composer.json` oder Git-Tag)
+          current_version=$(git describe --tags --abbrev=0 || echo "0.0.0")
+          major_version=$(echo $current_version | cut -d'.' -f1)
+          minor_version=$(echo $current_version | cut -d'.' -f2)
 
-          # Wenn Push: aus Commit-Message ableiten
-          if [ "${{ github.event_name }}" = "push" ]; then
-            MSG="${{ github.event.head_commit.message }}"
-            if echo "$MSG" | grep -qi -- "-vUpgrade"; then
-              TYPE="vUpgrade"
-            elif echo "$MSG" | grep -qi -- "-release"; then
-              TYPE="release"
-            fi
+          echo "Current version: $current_version"
+          
+          # Hole die Commit-Nachricht
+          commit_message="${{ github.event.head_commit.message }}"
+          echo "Commit message: $commit_message"
+          
+          # Variablen für Release und Upgrade
+          release_type="none"
+          
+          # Entweder "release" oder "vUpgrade"
+          if [[ "$commit_message" == *"+rel"* ]]; then
+            release_type="release"
+            minor_version=$((minor_version + 1))  # Erhöhe die Minor-Version
+            new_version="${major_version}.${minor_version}.0-release"
+            echo "Creating new release: $new_version"
+          elif [[ "$commit_message" == *"+vUpgrade"* ]]; then
+            release_type="vUpgrade"
+            new_version="${major_version}.$((minor_version + 1)).0-vUpgrade"
+            echo "Upgrading to version: $new_version"
           fi
 
-          if [ -z "$TYPE" ]; then TYPE="release"; fi
-          echo "release_type=$TYPE" >> "$GITHUB_OUTPUT"
-
-      - name: Compute next version (y.x scheme) and tag
-        id: version
-        env:
-          RELEASE_TYPE: ${{ steps.mode.outputs.release_type }}
-        run: |
-          # letzte Version im Format y.x finden (z.B. 3.12)
-          last_tag=$(git tag --list --sort=-v:refname | grep -E '^[0-9]+\.[0-9]+$' | head -n1)
-          if [ -z "$last_tag" ]; then last_tag="0.0"; fi
-
-          y=${last_tag%%.*}
-          x=${last_tag##*.}
-
-          if [ "$RELEASE_TYPE" = "vUpgrade" ]; then
-            new_version="$((y+1)).0"
-          else
-            new_version="${y}.$((x+1))"
-          fi
-
-          echo "last_tag=$last_tag"
-          echo "new_version=$new_version"
-
-          # Export als Output für folgende Steps
-          echo "new_version=$new_version" >> "$GITHUB_OUTPUT"
-
-      - name: Update composer.json (falls vorhanden) und committen
-        env:
-          NEW_VERSION: ${{ steps.version.outputs.new_version }}
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y jq
-
-          # Git-Author setzen (fix für "Author identity unknown")
-          git config user.name  "${GITHUB_ACTOR}"
-          git config user.email "${GITHUB_ACTOR}@users.noreply.github.com"
-
-          changed=0
-          if [ -f composer.json ]; then
-            jq --arg v "$NEW_VERSION" '.version = $v' composer.json > composer.tmp && mv composer.tmp composer.json
-            git add composer.json
-            changed=1
-          fi
-
-          if [ $changed -eq 1 ]; then
-            git commit -m "chore: bump to ${NEW_VERSION} (${{ steps.mode.outputs.release_type }})"
-            git push
-          else
-            echo "composer.json nicht vorhanden oder keine Änderung."
-          fi
-
-      - name: Create tag and push
-        env:
-          NEW_VERSION: ${{ steps.version.outputs.new_version }}
-        run: |
-          # Falls Tag schon existiert -> abbrechen (idempotent)
-          if git rev-parse "refs/tags/${NEW_VERSION}" >/dev/null 2>&1; then
-            echo "Tag ${NEW_VERSION} existiert bereits – überspringe."
+          # Falls kein `release` oder `vUpgrade` im Commit, einfach abbrechen
+          if [[ "$release_type" == "none" ]]; then
+            echo "No version bump detected, skipping."
             exit 0
           fi
-          git tag "$NEW_VERSION"
-          git push origin "$NEW_VERSION"
 
+          echo "New version: $new_version"
+          echo "::set-output name=new_version::$new_version"
+
+      # Step 3: Tag the new version
+      - name: Tag the new version
+        id: tag_version
+        run: |
+          # Hole die neue Version aus den Outputs
+          new_version=${{ steps.version_increment.outputs.new_version }}
+          
+          # Debugging-Ausgabe
+          echo "Tagging version: v$new_version"
+          
+          # Tagging der neuen Version
+          git tag "v$new_version"
+          git push origin "v$new_version"  # Stelle sicher, dass der Tag gepusht wird
+
+
+      # Step 4: Create GitHub Release
       - name: Create GitHub Release
+        id: create_release
+        run: |
+          # Hole die neue Version
+          new_version=${{ steps.version_increment.outputs.new_version }}
+
+          # Erstellen des Releases auf GitHub
+          echo "Creating GitHub release for version $new_version"
+          gh release create "v$new_version" --title "Release $new_version" --notes "Automated release for version $new_version"
+          echo "Release $new_version created successfully"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NEW_VERSION: ${{ steps.version.outputs.new_version }}
-        run: |
-          # gh ist auf ubuntu-latest vorinstalliert; zur Sicherheit Version ausgeben
-          gh --version
-          gh release create "$NEW_VERSION" \
-            --title "Release $NEW_VERSION" \
-            --notes "Automatischer ${ { steps.mode.outputs.release_type } }-Release für Drupal Modul."
+
