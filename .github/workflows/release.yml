@@ -20,77 +20,47 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout code
       - name: Checkout code
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
 
-      # Step 2: Increment Version
-      - name: Increment Version
-        id: version_increment
+      - name: Increment Version and Create Release
+        id: version_update
         run: |
           # Hole die aktuelle Version (verwende die bestehende Version aus `composer.json` oder Git-Tag)
           current_version=$(git describe --tags --abbrev=0 || echo "0.0.0")
           major_version=$(echo $current_version | cut -d'.' -f1)
           minor_version=$(echo $current_version | cut -d'.' -f2)
+          patch_version=$(echo $current_version | cut -d'.' -f3)
 
-          echo "Current version: $current_version"
-          
-          # Hole die Commit-Nachricht
-          commit_message="${{ github.event.head_commit.message }}"
-          echo "Commit message: $commit_message"
-          
-          # Variablen für Release und Upgrade
-          release_type="none"
-          
-          # Entweder "release" oder "vUpgrade"
-          if [[ "$commit_message" == *"+rel"* ]]; then
-            release_type="release"
-            minor_version=$((minor_version + 1))  # Erhöhe die Minor-Version
-            new_version="${major_version}.${minor_version}.0-release"
-            echo "Creating new release: $new_version"
-          elif [[ "$commit_message" == *"+vUpgrade"* ]]; then
-            release_type="vUpgrade"
-            new_version="${major_version}.$((minor_version + 1)).0-vUpgrade"
-            echo "Upgrading to version: $new_version"
+          echo "Aktuelle Version: $current_version"
+
+          # Version erhöhen, abhängig vom Release-Typ
+          if [ "${{ github.event.inputs.release_type }}" == "release" ]; then
+            # Normale Release: Minor Version erhöhen
+            new_version="${major_version}.$((minor_version + 1)).0"
+          elif [ "${{ github.event.inputs.release_type }}" == "vUpgrade" ]; then
+            # vUpgrade: Major Version erhöhen und Minor auf 0 setzen
+            new_version="$((major_version + 1)).0.0"
+          else
+            echo "Fehler: Ungültiger Release-Typ."
+            exit 1
           fi
 
-          # Falls kein `release` oder `vUpgrade` im Commit, einfach abbrechen
-          if [[ "$release_type" == "none" ]]; then
-            echo "No version bump detected, skipping."
-            exit 0
-          fi
-
-          echo "New version: $new_version"
-          echo "::set-output name=new_version::$new_version"
-
-      # Step 3: Tag the new version
-      - name: Tag the new version
-        id: tag_version
-        run: |
-          # Hole die neue Version aus den Outputs
-          new_version=${{ steps.version_increment.outputs.new_version }}
+          echo "Neue Version: $new_version"
           
-          # Debugging-Ausgabe
-          echo "Tagging version: v$new_version"
+          # Tag erstellen
+          git tag "$new_version"
+          git push origin "$new_version"
           
-          # Tagging der neuen Version
-          git tag "v$new_version"
-          git push origin "v$new_version"  # Stelle sicher, dass der Tag gepusht wird
-
-
-      # Step 4: Create GitHub Release
-      - name: Create GitHub Release
-        id: create_release
+          # Release erstellen
+          gh release create "$new_version" --title "Release $new_version" --notes "Automatisch generierter Release."
+          
+      - name: Commit Version Update
         run: |
-          # Hole die neue Version
-          new_version=${{ steps.version_increment.outputs.new_version }}
-
-          # Erstellen des Releases auf GitHub
-          echo "Creating GitHub release for version $new_version"
-          gh release create "v$new_version" --title "Release $new_version" --notes "Automated release for version $new_version"
-          echo "Release $new_version created successfully"
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
+          # Commit der neuen Version in composer.json (falls erforderlich)
+          jq --arg version "$new_version" '.version = $version' composer.json > temp.json && mv temp.json composer.json
+          git add composer.json
+          git commit -m "Update version to $new_version"
+          git push origin main
