@@ -1,0 +1,65 @@
+name: Version Update and Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Type of release (release or vUpgrade)'
+        required: true
+        default: 'release'
+        type: choice
+        options:
+          - release
+          - vUpgrade
+
+permissions:
+  contents: write
+
+jobs:
+  versioning:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      # --- Versionserhöhung und Release erstellen ---
+      - name: Increment Version & Create Release
+        id: version_update
+        run: |
+          # Hole die aktuelle Version (verwende die bestehende Version aus `composer.json` oder Git-Tag)
+          current_version=$(git describe --tags --abbrev=0 || echo "0.0.0")
+          major_version=$(echo $current_version | cut -d'.' -f1)
+          minor_version=$(echo $current_version | cut -d'.' -f2)
+
+          echo "Current version: $current_version"
+          
+          # Hole den Release-Typ aus den Eingabewerten
+          release_type="${{ github.event.inputs.release_type }}"
+          echo "Release type: $release_type"
+          
+          if [[ "$release_type" == "release" ]]; then
+            minor_version=$((minor_version + 1))  # Erhöhe die Minor-Version
+            new_version="${major_version}.${minor_version}.0"
+            echo "Creating new release: $new_version"
+          elif [[ "$release_type" == "vUpgrade" ]]; then
+            # Upgrade der aktuellen Version (hier wird auch die Minor-Version erhöht)
+            new_version="${major_version}.$((minor_version + 1)).0"
+            echo "Upgrading to version: $new_version"
+          else
+            echo "Unknown release type. Exiting."
+            exit 1
+          fi
+
+          # Tagging der neuen Version
+          git tag "v$new_version"
+          git push origin "v$new_version"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
