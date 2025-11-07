@@ -1,0 +1,9 @@
+name: 'HTL Typegrid'
+type: module
+description: 'Grid-Block with Cards'
+package: HTL
+core_version_requirement: ^11
+version: 1.0.0
+
+dependencies:
+  - drupal:media

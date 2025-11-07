@@ -1,0 +1,10 @@
+{
+    "name": "ftmahringer/htl_typegrid",
+    "description": "HTL Typegrid (Drupal module)",
+    "type": "drupal-module",
+    "license": "MIT",
+    "require": {},
+    "extra": {
+        "branch-alias": { "dev-main": "1.x-dev" }
+    }
+}

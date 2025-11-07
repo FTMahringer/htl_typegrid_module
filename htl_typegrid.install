@@ -1,0 +1,123 @@
+<?php
+
+use Drupal\Core\File\FileSystemInterface;
+use Drupal\file\Entity\File;
+use Drupal\image\Entity\ImageStyle;
+use Drupal\media\Entity\Media;
+
+/**
+ * Versucht im Modul-Ordner assets/ eine Datei "dummy.*" mit erlaubter Bild-Endung zu finden.
+ * Bevorzugte Reihenfolge: webp, avif, jpg, jpeg, png, gif
+ *
+ * @return array{source:string, ext:string}|null
+ */
+function _htl_typegrid_find_dummy_asset(): ?array {
+  $module_path = \Drupal::service('extension.list.module')->getPath('htl_typegrid');
+  $assets_dir = $module_path . '/assets';
+
+  // Erlaubte Rasterformate für Image Styles (SVG absichtlich ausgeschlossen):
+  $allowed = ['webp', 'avif', 'jpg', 'jpeg', 'png', 'gif'];
+
+  // Priorisierte Suche
+  foreach ($allowed as $ext) {
+    $candidate = $assets_dir . "/dummy.$ext";
+    if (is_file($candidate)) {
+      return ['source' => $candidate, 'ext' => $ext];
+    }
+  }
+
+  // Fallback: beliebiges dummy.* nehmen, wenn vorhanden (aber trotzdem nur erlaubte Endungen)
+  foreach (glob($assets_dir . '/dummy.*') ?: [] as $path) {
+    $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+    if (in_array($ext, $allowed, true) && is_file($path)) {
+      return ['source' => $path, 'ext' => $ext];
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Implements hook_install().
+ */
+function htl_typegrid_install(): void {
+  // 1) Bildstil für Cards anlegen (falls nicht vorhanden).
+  $style_id = 'htl_grid_card';
+  if (!ImageStyle::load($style_id)) {
+    $style = ImageStyle::create([
+      'name'  => $style_id,
+      'label' => 'HTL Grid Card (16:9)',
+    ]);
+    $style->addImageEffect([
+      'id' => 'image_scale_and_crop',
+      'weight' => 1,
+      'data' => ['width' => 960, 'height' => 540, 'anchor' => 'center-center'],
+    ]);
+    $style->save();
+  }
+
+  // 2) dummy.* im Modul suchen.
+  $found = _htl_typegrid_find_dummy_asset();
+  if (!$found) {
+    \Drupal::logger('htl_typegrid')->warning('Keine Datei "dummy.*" in assets/ gefunden. Überspringe Dummy-Media.');
+    // Wir speichern zumindest den Style in die Config.
+    \Drupal::configFactory()->getEditable('htl_typegrid.settings')
+      ->set('image_style', $style_id)
+      ->save();
+    return;
+  }
+
+  $source = $found['source'];
+  $ext = $found['ext']; // z.B. 'webp'
+  $fs = \Drupal::service('file_system');
+
+  // 3) Zielverzeichnis + Zieldatei mit gleicher Endung.
+  $dest_dir = 'public://htl_typegrid';
+  $fs->prepareDirectory($dest_dir, FileSystemInterface::CREATE_DIRECTORY);
+  $destination = $dest_dir . "/dummy.$ext";
+
+  // Nur kopieren, wenn noch nicht vorhanden (physisch).
+  $copied_uri = $destination;
+  $real = $fs->realpath($destination);
+  if (!$real || !file_exists($real)) {
+    $copied_uri = $fs->copy($source, $destination, FileSystemInterface::EXISTS_REPLACE);
+  }
+
+  // 4) Als Managed File speichern (permanent).
+  /** @var \Drupal\file\FileInterface $file */
+  $file = File::create(['uri' => $copied_uri]);
+  $file->setPermanent();
+  $file->save();
+
+  // Optional: File-Usage registrieren (sauber).
+  \Drupal::service('file.usage')->add($file, 'htl_typegrid', 'module', 0);
+
+  // 5) Media-Entity (image) anlegen.
+  // Achtung: Feldname im Core-Image-Media-Bundle ist i.d.R. "field_media_image".
+  // Falls dein Bundle/Feldname anders heißt, bitte hier anpassen.
+  $media = Media::create([
+    'bundle' => 'image',
+    'name'   => 'HTL Typegrid Dummy',
+    'status' => 1,
+    'field_media_image' => [
+      'target_id' => $file->id(),
+      'alt' => 'Dummy',
+      'title' => 'Dummy',
+    ],
+  ]);
+  $media->save();
+
+  // 6) UUID + Style in Config speichern.
+  \Drupal::configFactory()->getEditable('htl_typegrid.settings')
+    ->set('fallback_media_uuid', $media->uuid())
+    ->set('image_style', $style_id)
+    ->save();
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function htl_typegrid_uninstall(): void {
+  // Nur eigene Config löschen (Medien/Datei bleiben bestehen, um Referenzen nicht zu brechen).
+  \Drupal::configFactory()->getEditable('htl_typegrid.settings')->delete();
+}

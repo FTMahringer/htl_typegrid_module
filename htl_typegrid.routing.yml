@@ -1,0 +1,7 @@
+htl_grid.field_picker:
+  path: '/admin/htl_typegrid/field-picker'
+  defaults:
+    _title: 'Felder auswählen'
+    _form: '\Drupal\htl_typegrid\Form\FieldPickerForm'
+  requirements:
+    _permission: 'administer blocks'

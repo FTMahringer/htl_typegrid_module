@@ -1,0 +1,68 @@
+{# templates/htl-grid-block.html.twig #}
+{{ attach_library('htl_typegrid/grid') }}
+
+{% set show_bundle_heading = bundles_data|length > 1 %}
+<div class="htl-grid" style="--ft-grid-cols: {{ columns|default(3) }};">
+  {% for group in bundles_data %}
+    {% if show_bundle_heading %}
+      <h3 class="htl-grid__group">{{ group.bundle_label }}</h3>
+    {% endif %}
+
+    {% for item in group.nodes %}
+      {# Bildfeld erkennen #}
+      {% set imageField = null %}
+      {% set otherFields = [] %}
+      {% for f in item.fields|default([]) %}
+        {% if f is iterable and (f.class ?? '') starts with 'image' %}
+          {% if imageField is null %}{% set imageField = f %}{% else %}{% set otherFields = otherFields|merge([f]) %}{% endif %}
+        {% elseif f is iterable and (f.value['#theme'] ?? '') starts with 'image' %}
+          {% if imageField is null %}{% set imageField = f %}{% else %}{% set otherFields = otherFields|merge([f]) %}{% endif %}
+        {% else %}
+          {% set otherFields = otherFields|merge([f]) %}
+        {% endif %}
+      {% endfor %}
+
+      <article class="htl-card{% if item.url %} {% endif %}">
+        {% if item.url %}
+          <a class="htl-card__overlay"
+             href="{{ item.url }}"
+             aria-label="{{ item.title|escape }}"
+             tabindex="-1"            {# nicht fokusierbar, Fokus geht auf echte Links #}
+             aria-hidden="true"></a>  {# Screenreader nutzen die echten Links #}
+        {% endif %}
+
+
+        {% if imageField %}
+          <figure class="htl-card__media">
+            {{ imageField.value }}
+          </figure>
+        {% endif %}
+
+        <div class="htl-card__body">
+          <h4 class="htl-card__title">
+            {% if item.url %}
+              <a href="{{ item.url }}">{{ item.title }}</a>
+            {% else %}
+              {{ item.title }}
+            {% endif %}
+          </h4>
+
+
+          {% if otherFields is not empty %}
+            <ul class="htl-card__meta">
+              {% for f in otherFields %}
+                {% if f is iterable %}
+                  <li class="htl-card__meta-row {{ f.class|default('') }}">
+                    <span class="htl-card__meta-value">{{ f.value is defined ? f.value : '' }}</span>
+                  </li>
+                {% else %}
+                  <li class="htl-card__meta-row"><span class="htl-card__meta-value">{{ f }}</span></li>
+                {% endif %}
+              {% endfor %}
+            </ul>
+          {% endif %}
+        </div>
+      </article>
+    {% endfor %}
+  {% endfor %}
+</div>

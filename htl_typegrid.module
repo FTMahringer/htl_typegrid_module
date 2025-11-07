@@ -1,0 +1,25 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * @file
+ * Registriert Twig-Template für den Grid-Block.
+ */
+
+/**
+ * Implements hook_theme().
+ */
+
+function htl_typegrid_theme(array $existing, $type, $theme, $path): array {
+  return [
+    'htl_grid_block' => [
+      'template' => 'htl-grid-block',
+      'variables' => [
+        'bundles_data' => [],
+        'columns' => 3,
+      ],
+      'path' => $path . '/templates',
+    ],
+  ];
+}

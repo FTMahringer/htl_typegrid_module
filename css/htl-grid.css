@@ -1,0 +1,122 @@
+.htl-grid {
+  --gap: 1rem;
+  --cols: var(--ft-grid-cols, 3);
+  display: grid;
+  grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+  gap: var(--gap);
+}
+
+.htl-grid__group {
+  grid-column: 1 / -1;
+  margin: 1rem 0 .25rem;
+  font-size: clamp(1.05rem, 1vw + .75rem, 1.35rem);
+}
+
+/* ===== Card ===== */
+.htl-card {
+  --card-radius: 16px;
+  --card-bg: #fff;
+  --card-border: color-mix(in oklab, #000 10%, transparent);
+  --card-shadow: 0 10px 24px rgba(0,0,0,.10);
+  --card-shadow-hover: 0 18px 36px rgba(0,0,0,.16);
+
+  position: relative;
+  background: var(--card-bg);
+  border-radius: var(--card-radius);
+  border: 1px solid var(--card-border);
+  box-shadow: var(--card-shadow);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+}
+.htl-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--card-shadow-hover);
+  border-color: color-mix(in oklab, #000 18%, transparent);
+}
+
+/* Klickbarer Zustand (Cursor etc.) */
+.htl-card--clickable { cursor: pointer; }
+
+/* Stretched-link Overlay (macht die ganze Card klickbar) */
+.htl-card__overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+.htl-card__overlay:focus-visible {
+  outline: none;
+}
+
+/* Fokus-Ring für Tastatur */
+.htl-card--clickable:has(.htl-card__overlay:focus-visible),
+.htl-card--clickable:focus-within {
+  box-shadow: 0 0 0 3px color-mix(in oklab, #4f46e5 45%, white), var(--card-shadow-hover);
+}
+
+/* Media */
+.htl-card__media {
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  margin: 0;
+  background: linear-gradient(180deg, rgba(0,0,0,.04), rgba(0,0,0,.02));
+}
+.htl-card__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transform: scale(1);
+  transition: transform .3s ease;
+}
+.htl-card:hover .htl-card__media img {
+  transform: scale(1.04);
+}
+
+/* Body */
+.htl-card__body { padding: 1rem 1.05rem 1.1rem; }
+.htl-card__title {
+  margin: 0 0 .55rem;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: .2px;
+}
+/* Links in der Card sollen über dem Overlay liegen */
+.htl-card__title a,
+.htl-card__body a,
+.htl-card__media a {
+  position: relative;
+  z-index: 2;
+  text-decoration: none;
+}
+
+.htl-card__title a:hover,
+.htl-card__body a:hover,
+.htl-card__media a:hover {
+  text-decoration: underline;
+}
+
+
+
+/* Meta */
+.htl-card__meta {
+  list-style: none;
+  font-size: .85rem;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: .4rem;
+}
+.htl-card__meta-row { display: flex; gap: .5rem; align-items: baseline; }
+.htl-card__meta-label { opacity: .7; }
+.htl-card__meta-value :where(p, ul, ol) { margin: 0; }
+
+/* Responsiv */
+@media (max-width: 1024px) { .htl-grid { --cols: min(var(--ft-grid-cols, 3), 2); } }
+@media (max-width: 640px)  { .htl-grid { --cols: 1; } }
+
+/* Barrierefreiheit / Motion */
+@media (prefers-reduced-motion: reduce) {
+  .htl-card, .htl-card__media img { transition: none; }
+}
