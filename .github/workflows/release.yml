@@ -114,9 +114,10 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NEW_VERSION: ${{ steps.version.outputs.new_version }}
+          RELEASE_TYPE: ${{ steps.mode.outputs.release_type }}
         run: |
-          # gh ist auf ubuntu-latest vorinstalliert; zur Sicherheit Version ausgeben
           gh --version
           gh release create "$NEW_VERSION" \
             --title "Release $NEW_VERSION" \
-            --notes "Automatischer ${ { steps.mode.outputs.release_type } }-Release für Drupal Modul."
+            --notes "Automatischer ${RELEASE_TYPE}-Release für Drupal Modul."
+
