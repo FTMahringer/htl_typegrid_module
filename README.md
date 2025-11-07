@@ -67,12 +67,9 @@ Oder über das UI:
 
 ## ⚙️ Konfiguration (Überblick)
 
-- **Grid-Größe:** Spalten / Zeilen  
-- **Bundle / Typ:** wählbar  
-- **Anzuzeigende Felder:** definierbar  
-- **Links oder Teaser:** optional  
-
-*(Die genauen Optionen hängen von deiner Modulversion ab.)*
+- **Inhaltstyp:** frei wählbar  
+- **Attribute / Felder:** definierbar  
+- **Links oder Teaser:** optional
 
 ---
 
