@@ -48,11 +48,11 @@ jobs:
           if [[ "$commit_message" == *"+rel"* ]]; then
             release_type="release"
             minor_version=$((minor_version + 1))  # Erhöhe die Minor-Version
-            new_version="${major_version}.${minor_version}.0"
+            new_version="${major_version}.${minor_version}.0-release"
             echo "Creating new release: $new_version"
           elif [[ "$commit_message" == *"+vUpgrade"* ]]; then
             release_type="vUpgrade"
-            new_version="${major_version}.$((minor_version + 1)).0"
+            new_version="${major_version}.$((minor_version + 1)).0-vUpgrade"
             echo "Upgrading to version: $new_version"
           fi
 
@@ -71,10 +71,14 @@ jobs:
         run: |
           # Hole die neue Version aus den Outputs
           new_version=${{ steps.version_increment.outputs.new_version }}
-
+          
+          # Debugging-Ausgabe
+          echo "Tagging version: v$new_version"
+          
           # Tagging der neuen Version
           git tag "v$new_version"
           git push origin "v$new_version"  # Stelle sicher, dass der Tag gepusht wird
+
 
       # Step 4: Create GitHub Release
       - name: Create GitHub Release
@@ -89,4 +93,4 @@ jobs:
           echo "Release $new_version created successfully"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  
+
