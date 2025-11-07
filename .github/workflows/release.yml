@@ -1,17 +1,14 @@
 name: Version Update and Release
 
 on:
-  # Manuell starten
   workflow_dispatch:
     inputs:
       release_type:
-        description: 'release = y.x+1 | vUpgrade = (y+1).0'
+        description: 'release = Y.(X+1).0 | vUpgrade = (Y+1).0.0'
         required: true
         default: 'release'
         type: choice
         options: [release, vUpgrade]
-
-  # Optional: per Commit auslösen, wenn die Message -release oder -vUpgrade enthält
   push:
     branches: [ main, master ]
     paths-ignore:
@@ -28,15 +25,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # alle Tags sehen
+          fetch-depth: 0  # alle Tags
 
-      - name: Set release_type (from dispatch or commit message)
+      - name: Ensure gh cli present
+        run: |
+          if ! command -v gh >/dev/null 2>&1; then
+            sudo apt-get update -y
+            sudo apt-get install -y gh
+          fi
+
+      - name: Detect release type (dispatch or commit message)
         id: mode
         run: |
-          # Standard: aus workflow_dispatch
           TYPE="${{ github.event.inputs.release_type }}"
-
-          # Wenn Push: aus Commit-Message ableiten
           if [ "${{ github.event_name }}" = "push" ]; then
             MSG="${{ github.event.head_commit.message }}"
             if echo "$MSG" | grep -qi -- "-vUpgrade"; then
@@ -45,79 +46,86 @@ jobs:
               TYPE="release"
             fi
           fi
-
-          if [ -z "$TYPE" ]; then TYPE="release"; fi
+          [ -z "$TYPE" ] && TYPE="release"
           echo "release_type=$TYPE" >> "$GITHUB_OUTPUT"
+          echo "Using release_type=$TYPE"
 
-      - name: Compute next version (y.x scheme) and tag
+      - name: Compute next SemVer and outputs
         id: version
         env:
           RELEASE_TYPE: ${{ steps.mode.outputs.release_type }}
+        shell: bash
         run: |
-          # letzte Version im Format y.x finden (z.B. 3.12)
-          last_tag=$(git tag --list --sort=-v:refname | grep -E '^[0-9]+\.[0-9]+$' | head -n1)
-          if [ -z "$last_tag" ]; then last_tag="0.0"; fi
+          # Alle Tags holen
+          git fetch --tags --force
 
-          y=${last_tag%%.*}
-          x=${last_tag##*.}
-
-          if [ "$RELEASE_TYPE" = "vUpgrade" ]; then
-            new_version="$((y+1)).0"
-          else
-            new_version="${y}.$((x+1))"
+          # Alle Tags in X.Y.Z normalisieren (ohne führendes v), nur echte SemVer
+          mapfile -t versions < <(git tag --list | sed -E 's/^v//' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V)
+          last="0.0.0"
+          if [ ${#versions[@]} -gt 0 ]; then
+            last="${versions[-1]}"
           fi
 
-          echo "last_tag=$last_tag"
-          echo "new_version=$new_version"
+          IFS='.' read -r MA MI PA <<<"$last"
 
-          # Export als Output für folgende Steps
-          echo "new_version=$new_version" >> "$GITHUB_OUTPUT"
+          if [ "$RELEASE_TYPE" = "vUpgrade" ]; then
+            NEW="$((MA+1)).0.0"
+          else
+            NEW="${MA}.$((MI+1)).0"
+          fi
 
-      - name: Update composer.json (falls vorhanden) und committen
-        env:
-          NEW_VERSION: ${{ steps.version.outputs.new_version }}
+          echo "last_version=$last"
+          echo "new_version=$NEW"
+
+          echo "last_version=$last" >> "$GITHUB_OUTPUT"
+          echo "new_version=$NEW" >> "$GITHUB_OUTPUT"
+          echo "tag_v=v$NEW" >> "$GITHUB_OUTPUT"
+
+      - name: Configure Git author
         run: |
-          sudo apt-get update -y
-          sudo apt-get install -y jq
-
-          # Git-Author setzen (fix für "Author identity unknown")
           git config user.name  "${GITHUB_ACTOR}"
           git config user.email "${GITHUB_ACTOR}@users.noreply.github.com"
 
-          changed=0
-          if [ -f composer.json ]; then
-            jq --arg v "$NEW_VERSION" '.version = $v' composer.json > composer.tmp && mv composer.tmp composer.json
-            git add composer.json
-            changed=1
-          fi
-
-          if [ $changed -eq 1 ]; then
-            git commit -m "chore: bump to ${NEW_VERSION} (${{ steps.mode.outputs.release_type }})"
-            git push
-          else
-            echo "composer.json nicht vorhanden oder keine Änderung."
-          fi
-
-      - name: Create tag and push
-        env:
-          NEW_VERSION: ${{ steps.version.outputs.new_version }}
+      - name: Remove version from composer.json (Composer derives from tags)
         run: |
-          # Falls Tag schon existiert -> abbrechen (idempotent)
-          if git rev-parse "refs/tags/${NEW_VERSION}" >/dev/null 2>&1; then
-            echo "Tag ${NEW_VERSION} existiert bereits – überspringe."
+          if [ -f composer.json ]; then
+            sudo apt-get update -y && sudo apt-get install -y jq
+            # Entfernt das Feld .version, falls vorhanden
+            tmp=$(mktemp)
+            jq 'del(.version)' composer.json > "$tmp" && mv "$tmp" composer.json
+            if git diff --quiet -- composer.json; then
+              echo "composer.json unverändert (kein .version Feld)."
+            else
+              git add composer.json
+              git commit -m "chore: remove composer.json version (use git tags)"
+              git push
+            fi
+          else
+            echo "composer.json nicht gefunden – überspringe."
+          fi
+
+      - name: Create annotated SemVer tag (with v prefix)
+        env:
+          TAG_V: ${{ steps.version.outputs.tag_v }}
+        run: |
+          if git rev-parse "refs/tags/${TAG_V}" >/dev/null 2>&1; then
+            echo "Tag ${TAG_V} existiert bereits – überspringe."
             exit 0
           fi
-          git tag "$NEW_VERSION"
-          git push origin "$NEW_VERSION"
+          git tag -a "$TAG_V" -m "Release $TAG_V"
+          git push origin "$TAG_V"
 
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NEW_VERSION: ${{ steps.version.outputs.new_version }}
+          TAG_V: ${{ steps.version.outputs.tag_v }}
           RELEASE_TYPE: ${{ steps.mode.outputs.release_type }}
         run: |
-          gh --version
-          gh release create "$NEW_VERSION" \
-            --title "Release $NEW_VERSION" \
+          # idempotent: falls Release existiert -> skip
+          if gh release view "$TAG_V" >/dev/null 2>&1; then
+            echo "Release $TAG_V existiert bereits – überspringe."
+            exit 0
+          fi
+          gh release create "$TAG_V" \
+            --title "Release $TAG_V" \
             --notes "Automatischer ${RELEASE_TYPE}-Release für Drupal Modul."
-
