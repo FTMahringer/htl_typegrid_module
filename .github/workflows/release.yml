@@ -20,14 +20,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Step 1: Checkout code
       - name: Checkout code
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
 
-      # --- Versionserhöhung und Release erstellen ---
-      - name: Increment Version & Create Release
-        id: version_update
+      # Step 2: Increment Version
+      - name: Increment Version
+        id: version_increment
         run: |
           # Hole die aktuelle Version (verwende die bestehende Version aus `composer.json` oder Git-Tag)
           current_version=$(git describe --tags --abbrev=0 || echo "0.0.0")
@@ -61,13 +62,28 @@ jobs:
             exit 0
           fi
 
+          echo "New version: $new_version"
+          echo "::set-output name=new_version::$new_version"
+
+      # Step 3: Tag the new version
+      - name: Tag the new version
+        id: tag_version
+        run: |
+          # Hole die neue Version aus den Outputs
+          new_version=${{ steps.version_increment.outputs.new_version }}
+
           # Tagging der neuen Version
           git tag "v$new_version"
           git push origin "v$new_version"  # Stelle sicher, dass der Tag gepusht wird
 
+      # Step 4: Create GitHub Release
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        id: create_release
+        run: |
+          # Hole die neue Version
+          new_version=${{ steps.version_increment.outputs.new_version }}
+
+          # Erstellen des Releases auf GitHub
+          echo "Creating GitHub release for version $new_version"
+          gh release create "v$new_version" --title "Release $new_version" --notes "Automated release for version $new_version"
+          echo "Release $new_version created successfully"
