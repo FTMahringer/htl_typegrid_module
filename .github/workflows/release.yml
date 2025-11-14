@@ -36,21 +36,33 @@ jobs:
 
       - name: Detect release type
         id: mode
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          RELEASE_INPUT: ${{ github.event.inputs.release_type }}
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
         run: |
-          TYPE="${{ github.event.inputs.release_type }}"
-          if [ "${{ github.event_name }}" = "push" ]; then
-            MSG="${{ github.event.head_commit.message }}"
-            if echo "$MSG" | grep -qi -- "-upgrade"; then
+          # Standard-Wert aus workflow_dispatch-Input (bei push leer)
+          TYPE="${RELEASE_INPUT}"
+
+          if [ "${EVENT_NAME}" = "push" ]; then
+            # Nur die erste Zeile der Commit-Message nehmen
+            first_line=$(printf '%s\n' "$COMMIT_MSG" | head -n1)
+
+            if echo "$first_line" | grep -qi -- "-upgrade"; then
               TYPE="upgrade"
-            elif echo "$MSG" | grep -qi -- "-release"; then
+            elif echo "$first_line" | grep -qi -- "-release"; then
               TYPE="release"
-            elif echo "$MSG" | grep -qi -- "-patch"; then
+            elif echo "$first_line" | grep -qi -- "-patch"; then
               TYPE="patch"
             fi
           fi
+
+          # Fallback, falls irgendwie doch nichts gesetzt ist
           [ -z "$TYPE" ] && TYPE="release"
+
           echo "release_type=$TYPE" >> "$GITHUB_OUTPUT"
           echo "Using release_type=$TYPE"
+
 
       - name: Compute next SemVer
         id: version
