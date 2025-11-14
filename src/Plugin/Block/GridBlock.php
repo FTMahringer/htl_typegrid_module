@@ -38,6 +38,12 @@ final class GridBlock extends BlockBase
       'columns' => 3,
       'rows' => 2,
       'bundle_fields' => [],
+      // Neu: Filter-Defaults
+      'filters' => [
+        'sort_mode' => 'newest', // newest | oldest | alpha | random
+        'alpha_field' => 'title',
+        'direction' => 'ASC',    // ASC | DESC (bei alpha oder created)
+      ],
     ];
   }
 
@@ -54,6 +60,12 @@ final class GridBlock extends BlockBase
     $rows = (int)($c['rows']);
     $limitPerType = min(20, $columns * $rows);
 
+    // Filter lesen
+    $filters = (array)($c['filters'] ?? []);
+    $sortMode = (string)($filters['sort_mode'] ?? 'newest');
+    $direction = strtoupper((string)($filters['direction'] ?? 'ASC')) === 'DESC' ? 'DESC' : 'ASC';
+    $alphaField = (string)($filters['alpha_field'] ?? 'title');
+
     /** @var EntityTypeBundleInfoInterface $bundle_info_service */
     $bundle_info_service = Drupal::service('entity_type.bundle.info');
     $bundle_info = $bundle_info_service->getBundleInfo('node');
@@ -64,24 +76,50 @@ final class GridBlock extends BlockBase
     $cache->setCacheContexts(['user.permissions']);
 
     if ($bundle && isset($bundle_info[$bundle])) {
-      $ids = Drupal::entityQuery('node')
+      $q = Drupal::entityQuery('node')
         ->condition('type', $bundle)
         ->condition('status', 1)
-        ->sort('created', 'DESC')
-        ->range(0, $limitPerType)
-        ->accessCheck(TRUE)
-        ->execute();
+        ->accessCheck(TRUE);
 
+      // Sortierung anwenden
+      if ($sortMode === 'newest') {
+        $q->sort('created', 'DESC');
+      } elseif ($sortMode === 'oldest') {
+        $q->sort('created', 'ASC');
+      } elseif ($sortMode === 'alpha') {
+        // title (Basisfeld) oder Feldwert sortieren
+        if ($alphaField === 'title') {
+          $q->sort('title', $direction);
+        } else {
+          // typischer String-Feldpfad
+          $q->sort($alphaField . '.value', $direction);
+        }
+      } elseif ($sortMode === 'random') {
+        // keine Sortierung auf Query; wir shufflen nach dem Laden
+      } else {
+        // Fallback
+        $q->sort('created', 'DESC');
+      }
+
+      // Bei random laden wir etwas mehr, um sinnvoll mischen zu können
+      $range = $sortMode === 'random' ? max($limitPerType, 30) : $limitPerType;
+      $q->range(0, $range);
+
+      $ids = $q->execute();
       $nodes = $ids ? Drupal::entityTypeManager()->getStorage('node')->loadMultiple($ids) : [];
+
+      if ($sortMode === 'random' && $nodes) {
+        shuffle($nodes);
+        // auf Anzeige-Limit einkürzen
+        $nodes = array_slice($nodes, 0, $limitPerType);
+      }
 
       $chosen = (array)($c['bundle_fields'][$bundle] ?? []);
       $chosen = array_values($chosen);
 
       $cards = [];
       foreach ($nodes as $node) {
-        // --- NEU: alle Feldtypen (inkl. Media) über Helper aufbereiten
         $fieldsOut = FieldRenderHelper::buildCardFields($node, $chosen, $cache);
-
         $cards[] = [
           'title' => $node->label(),
           'fields' => $fieldsOut,
@@ -103,13 +141,12 @@ final class GridBlock extends BlockBase
       '#theme' => 'htl_grid_block',
       '#bundles_data' => $bundles_data,
       '#columns' => $columns,
-      '#attached' => [
-        // FIX: Modulname stimmt!
-        'library' => ['htl_typegrid/grid'],
-      ]
+      '#rows' => $rows,
+      '#filters' => $filters,
     ];
     $cache->applyTo($build);
     return $build;
+
   }
 
   private function truncate(string $text, int $max): string
@@ -161,6 +198,35 @@ final class GridBlock extends BlockBase
       '#description' => $this->t('Wähle genau einen Inhaltstyp.'),
     ];
 
+    // --- NEU: Layout (Columns/Rows)
+    $form['layout'] = [
+      '#type' => 'details',
+      '#title' => $this->t('Layout'),
+      '#group' => 'tabs',
+      '#open' => FALSE,
+    ];
+    $form['layout']['columns'] = [
+      '#type' => 'number',
+      '#title' => $this->t('Spalten'),
+      '#default_value' => (int)($c['columns'] ?? 3),
+      '#min' => 1,
+      '#max' => 12,
+      '#step' => 1,
+      '#required' => TRUE,
+      '#description' => $this->t('Anzahl Spalten (1–12).'),
+    ];
+    $form['layout']['rows'] = [
+      '#type' => 'number',
+      '#title' => $this->t('Zeilen'),
+      '#default_value' => (int)($c['rows'] ?? 2),
+      '#min' => 1,
+      '#max' => 12,
+      '#step' => 1,
+      '#required' => TRUE,
+      '#description' => $this->t('Anzahl Zeilen (1–12).'),
+    ];
+
+
     // Wrapper
     $form['bundle_tabs_wrapper'] = [
       '#type' => 'container',
@@ -192,7 +258,7 @@ final class GridBlock extends BlockBase
         '#type' => 'details',
         '#title' => $this->t('Felder'),
         '#group' => 'tabs',
-        '#open' => TRUE,
+        '#open' => FALSE,
       ];
 
       $fieldDefs = \Drupal::service('entity_field.manager')->getFieldDefinitions('node', $selectedBundle);
@@ -201,9 +267,7 @@ final class GridBlock extends BlockBase
       // Tabelle der aktuell gewählten Felder
       $rows = [];
       foreach ($currentChosen as $name) {
-        if (!isset($fieldOptions[$name]) || !isset($fieldDefs[$name])) {
-          continue;
-        }
+        if (!isset($fieldDefs[$name])) continue;
 
         /** @var FieldDefinitionInterface $def */
         $def = $fieldDefs[$name];
@@ -283,11 +347,72 @@ final class GridBlock extends BlockBase
         '#attached' => ['library' => ['core/drupal.dialog.ajax']],
       ];
 
-      // 5) (Optional) unsichtbarer Picker-Container kann entfallen – wird hier nicht benutzt.
-      //    Wenn du ihn behalten willst, nur als Platzhalter:
-      $form['bundle_tabs_wrapper']['field_picker'] = [
-        '#type' => 'container',
-        '#access' => FALSE,
+      // --- NEU: Tab "Filter"
+      // Textuelle Feld-Optionen für alphabetische Sortierung
+      $textFieldOpts = ['title' => $this->t('Titel (Basisfeld)')];
+      foreach ($fieldDefs as $fname => $def) {
+        if ($def->getFieldStorageDefinition()->isBaseField()) {
+          continue;
+        }
+        $type = $def->getType();
+        // typische Text-Typen
+        if (in_array($type, ['string', 'string_long', 'text', 'text_long', 'text_with_summary'], TRUE)) {
+          $label = (string)($def->getLabel() ?? $fname);
+          $textFieldOpts[$fname] = $label . ' (' . $fname . ')';
+        }
+      }
+
+      $filters = (array)($c['filters'] ?? []);
+      $sortMode = (string)($filters['sort_mode'] ?? 'newest');
+      $direction = strtoupper((string)($filters['direction'] ?? 'ASC')) === 'DESC' ? 'DESC' : 'ASC';
+      $alphaField = array_key_exists(($filters['alpha_field'] ?? 'title'), $textFieldOpts)
+        ? (string)$filters['alpha_field']
+        : 'title';
+
+      $form['bundle_tabs_wrapper']['filters_tab'] = [
+        '#type' => 'details',
+        '#title' => $this->t('Filter & Sortierung'),
+        '#group' => 'tabs',
+        '#open' => TRUE,
+      ];
+
+      $form['bundle_tabs_wrapper']['filters_tab']['sort_mode'] = [
+        '#type' => 'select',
+        '#title' => $this->t('Sortieren nach'),
+        '#options' => [
+          'newest' => $this->t('Neueste zuerst'),
+          'oldest' => $this->t('Älteste zuerst'),
+          'alpha'  => $this->t('Alphabetisch'),
+          'random' => $this->t('Zufällig'),
+        ],
+        '#default_value' => $sortMode,
+        '#description' => $this->t('Wähle die Reihenfolge der Inhalte.'),
+      ];
+
+      $form['bundle_tabs_wrapper']['filters_tab']['direction'] = [
+        '#type' => 'select',
+        '#title' => $this->t('Richtung'),
+        '#options' => ['ASC' => 'ASC', 'DESC' => 'DESC'],
+        '#default_value' => $direction,
+        '#states' => [
+          'visible' => [
+            // Richtung nur zeigen bei alpha oder created-Sort?
+            [':input[name$="[sort_mode]"]' => ['value' => 'alpha']],
+          ],
+        ],
+      ];
+
+      $form['bundle_tabs_wrapper']['filters_tab']['alpha_field'] = [
+        '#type' => 'select',
+        '#title' => $this->t('Feld für alphabetische Sortierung'),
+        '#options' => $textFieldOpts,
+        '#default_value' => $alphaField,
+        '#states' => [
+          'visible' => [
+            [':input[name$="[sort_mode]"]' => ['value' => 'alpha']],
+          ],
+        ],
+        '#description' => $this->t('Wähle ein textuelles Feld (oder Titel).'),
       ];
     }
 
@@ -306,6 +431,7 @@ final class GridBlock extends BlockBase
     $formDisplay = Drupal::service('entity_display.repository')->getFormDisplay('node', $bundle, 'default');
     $fieldOptions = [];
     $rows = [];
+
     /** @var FieldDefinitionInterface $def */
     foreach ($fieldDefs as $name => $def) {
       // Basisfelder überspringen, wenn du nur konfigurierbare willst:
@@ -378,7 +504,6 @@ final class GridBlock extends BlockBase
 
     // Aktuellen Bundle merken
     $form_state->set('prev_bundle', $curr);
-
     // Rebuild erzwingen
     $form_state->setRebuild(TRUE);
 
@@ -391,17 +516,34 @@ final class GridBlock extends BlockBase
 
   public function blockValidate($form, FormStateInterface $form_state): void
   {
+    // Feld-Auswahl Limit
     $json = (string)$this->readValue($form, $form_state, ['bundle_tabs_wrapper', 'fields_json'], '[]');
     $chosen = json_decode($json, true);
-
     if (!is_array($chosen)) {
-      // Fallback auf Value-Element
       $chosen = (array)$this->readValue($form, $form_state, ['bundle_tabs_wrapper', 'fields'], []);
     }
     $chosen = array_values(array_filter($chosen, fn($v) => (string)$v !== '0'));
-
     if (count($chosen) > 3) {
       $form_state->setErrorByName('bundle_tabs_wrapper][fields_json', $this->t('Bitte maximal 3 Felder auswählen.'));
+    }
+
+    // Layout validieren
+    $cols = (int)$this->readValue($form, $form_state, ['layout', 'columns'], 3);
+    $rows = (int)$this->readValue($form, $form_state, ['layout', 'rows'], 2);
+    if ($cols < 1 || $cols > 12) {
+      $form_state->setErrorByName('layout][columns', $this->t('Spalten müssen zwischen 1 und 12 liegen.'));
+    }
+    if ($rows < 1 || $rows > 12) {
+      $form_state->setErrorByName('layout][rows', $this->t('Zeilen müssen zwischen 1 und 12 liegen.'));
+    }
+
+    // Filter validieren (alpha benötigt ein Feld)
+    $sortMode = (string)$this->readValue($form, $form_state, ['bundle_tabs_wrapper', 'filters_tab', 'sort_mode'], 'newest');
+    if ($sortMode === 'alpha') {
+      $alphaField = (string)$this->readValue($form, $form_state, ['bundle_tabs_wrapper', 'filters_tab', 'alpha_field'], 'title');
+      if ($alphaField === '') {
+        $form_state->setErrorByName('bundle_tabs_wrapper][filters_tab][alpha_field', $this->t('Bitte ein Feld für alphabetische Sortierung wählen.'));
+      }
     }
   }
 
@@ -416,18 +558,24 @@ final class GridBlock extends BlockBase
     $this->setConfigurationValue('columns', $columns);
     $this->setConfigurationValue('rows', $rows);
 
+    // Filter speichern
+    $sortMode = (string)$this->readValue($form, $form_state, ['bundle_tabs_wrapper', 'filters_tab', 'sort_mode'], 'newest');
+    $direction = (string)$this->readValue($form, $form_state, ['bundle_tabs_wrapper', 'filters_tab', 'direction'], 'ASC');
+    $alphaField = (string)$this->readValue($form, $form_state, ['bundle_tabs_wrapper', 'filters_tab', 'alpha_field'], 'title');
+    $this->setConfigurationValue('filters', [
+      'sort_mode' => $sortMode,
+      'direction' => strtoupper($direction) === 'DESC' ? 'DESC' : 'ASC',
+      'alpha_field' => $alphaField ?: 'title',
+    ]);
+
     $bundleFields = [];
     if ($bundle !== '') {
       $json = (string)$this->readValue($form, $form_state, ['bundle_tabs_wrapper', 'fields_json'], '[]');
       $chosen = json_decode($json, true);
-
       if (!is_array($chosen)) {
-        // Nur wenn JSON komplett fehlt/kaputt ist -> Fallback
         $chosen = (array)$this->readValue($form, $form_state, ['bundle_tabs_wrapper', 'fields'], []);
       }
-
       $chosen = array_values(array_filter($chosen, fn($v) => (string)$v !== '0'));
-      // Leere Auswahl ist erlaubt -> wird gespeichert
       $bundleFields[$bundle] = array_slice($chosen, 0, 3);
     }
 
@@ -454,13 +602,11 @@ final class GridBlock extends BlockBase
     $parents = $form['#parents'] ?? [];
     $fullPath = array_merge($parents, $relativePath);
 
-    // Kandidatenpfade: ohne und mit "settings" vorn (Block-UI packt alles darunter).
     $candidates = [
       $fullPath,
       array_merge(['settings'], $fullPath),
     ];
 
-    // 1) Rohes User-Input
     $input = $form_state->getUserInput() ?? [];
     foreach ($candidates as $path) {
       $value = NestedArray::getValue($input, $path, $exists);
@@ -469,7 +615,6 @@ final class GridBlock extends BlockBase
       }
     }
 
-    // 2) Root-FormState (Submit/Validate)
     $rootState = ($form_state instanceof SubformStateInterface)
       ? $form_state->getCompleteFormState()
       : $form_state;

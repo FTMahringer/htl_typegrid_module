@@ -15,11 +15,18 @@ function htl_typegrid_theme(array $existing, $type, $theme, $path): array {
   return [
     'htl_grid_block' => [
       'template' => 'htl-grid-block',
+      'path' => $path . '/templates',
       'variables' => [
         'bundles_data' => [],
         'columns' => 3,
+        'rows' => 2,
+        'filters' => [
+          'sort_mode' => 'newest',
+          'alpha_field' => 'title',
+          'direction' => 'ASC',
+        ],
       ],
-      'path' => $path . '/templates',
     ],
   ];
 }
+

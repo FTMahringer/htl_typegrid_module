@@ -2,7 +2,10 @@
 {{ attach_library('htl_typegrid/grid') }}
 
 {% set show_bundle_heading = bundles_data|length > 1 %}
-<div class="htl-grid" style="--ft-grid-cols: {{ columns|default(3) }};">
+<div class="htl-grid" style="
+  --ft-grid-cols: {{ columns|default(3) }};
+  --ft-grid-rows: {{ rows|default(2) }};
+  ">
   {% for group in bundles_data %}
     {% if show_bundle_heading %}
       <h3 class="htl-grid__group">{{ group.bundle_label }}</h3>
