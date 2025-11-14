@@ -2,42 +2,27 @@
 {{ attach_library('htl_typegrid/grid') }}
 
 {% set show_bundle_heading = bundles_data|length > 1 %}
-<div class="htl-grid" style="
-  --ft-grid-cols: {{ columns|default(3) }};
-  --ft-grid-rows: {{ rows|default(2) }};
-  ">
+
+<div class="htl-grid"
+     style="--ft-grid-cols: {{ columns|default(3) }}; --ft-grid-rows: {{ rows|default(2) }};">
   {% for group in bundles_data %}
     {% if show_bundle_heading %}
       <h3 class="htl-grid__group">{{ group.bundle_label }}</h3>
     {% endif %}
 
     {% for item in group.nodes %}
-      {# Bildfeld erkennen #}
-      {% set imageField = null %}
-      {% set otherFields = [] %}
-      {% for f in item.fields|default([]) %}
-        {% if f is iterable and (f.class ?? '') starts with 'image' %}
-          {% if imageField is null %}{% set imageField = f %}{% else %}{% set otherFields = otherFields|merge([f]) %}{% endif %}
-        {% elseif f is iterable and (f.value['#theme'] ?? '') starts with 'image' %}
-          {% if imageField is null %}{% set imageField = f %}{% else %}{% set otherFields = otherFields|merge([f]) %}{% endif %}
-        {% else %}
-          {% set otherFields = otherFields|merge([f]) %}
-        {% endif %}
-      {% endfor %}
-
-      <article class="htl-card{% if item.url %} {% endif %}">
+      <article class="htl-card">
+        {# Klickbare Overlay-Fläche auf der ganzen Card #}
         {% if item.url %}
           <a class="htl-card__overlay"
              href="{{ item.url }}"
-             aria-label="{{ item.title|escape }}"
-             tabindex="-1"            {# nicht fokusierbar, Fokus geht auf echte Links #}
-             aria-hidden="true"></a>  {# Screenreader nutzen die echten Links #}
+             aria-label="{{ item.title }}"></a>
         {% endif %}
 
-
-        {% if imageField %}
+        {# Bildbereich – kommt direkt aus GridCardBuilder #}
+        {% if item.image %}
           <figure class="htl-card__media">
-            {{ imageField.value }}
+            {{ item.image }}
           </figure>
         {% endif %}
 
@@ -50,20 +35,20 @@
             {% endif %}
           </h4>
 
-
-          {% if otherFields is not empty %}
-            <ul class="htl-card__meta">
-              {% for f in otherFields %}
-                {% if f is iterable %}
-                  <li class="htl-card__meta-row {{ f.class|default('') }}">
-                    <span class="htl-card__meta-value">{{ f.value is defined ? f.value : '' }}</span>
-                  </li>
-                {% else %}
-                  <li class="htl-card__meta-row"><span class="htl-card__meta-value">{{ f }}</span></li>
+          {# Meta-Felder (Datum, Text-Teaser, etc.) #}
+          {% if item.meta is not empty %}
+            <div class="htl-card__meta">
+              {% for row in item.meta %}
+                {% if row is iterable and row.value is defined %}
+                  <div class="htl-card__meta-row {{ row.class|default('') }}">
+                    {{ row.value }} {# Render-Array von Drupal, NICHT |raw, NICHT in <p> packen #}
+                  </div>
                 {% endif %}
               {% endfor %}
-            </ul>
+            </div>
           {% endif %}
+
+
         </div>
       </article>
     {% endfor %}

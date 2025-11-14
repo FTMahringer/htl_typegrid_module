@@ -16,19 +16,24 @@ use Drupal\media\MediaInterface;
 /**
  * Kapselt die Feld-zu-Array Logik für Cards.
  * Erkennt Media-Image Felder und liefert ein Render-Array mit class "image" (Card-Cover).
+ *
+ * @deprecated Wird durch Service\FieldRenderer ersetzt.
+ *
  */
 final class FieldRenderHelper
 {
-  private const CARD_STYLE = 'htl_grid_card';
+  private const CARD_STYLE = "htl_grid_card";
 
-  private static function imageStyleExists(string $id): bool {
+  private static function imageStyleExists(string $id): bool
+  {
     return (bool) \Drupal\image\Entity\ImageStyle::load($id);
   }
 
-  private static function getCardStyleName(): string {
-    $cfg = Drupal::config('htl_typegrid.settings');
-    $style = (string) ($cfg->get('image_style') ?? self::CARD_STYLE);
-    return self::imageStyleExists($style) ? $style : 'large';
+  private static function getCardStyleName(): string
+  {
+    $cfg = Drupal::config("htl_typegrid.settings");
+    $style = (string) ($cfg->get("image_style") ?? self::CARD_STYLE);
+    return self::imageStyleExists($style) ? $style : "large";
   }
 
   /**
@@ -39,8 +44,11 @@ final class FieldRenderHelper
    * @param \Drupal\Core\Cache\CacheableMetadata $cache
    * @return array<int,array{label:?string,value:mixed,class?:string}>
    */
-  public static function buildCardFields($node, array $chosen, CacheableMetadata $cache): array
-  {
+  public static function buildCardFields(
+    $node,
+    array $chosen,
+    CacheableMetadata $cache,
+  ): array {
     $out = [];
 
     foreach ($chosen as $fieldName) {
@@ -53,32 +61,35 @@ final class FieldRenderHelper
 
       /** @var FieldItemListInterface $field */
       $field = $node->get($fieldName);
-      $def   = $field->getFieldDefinition();
-      $type  = $def->getType();
+      $def = $field->getFieldDefinition();
+      $type = $def->getType();
       $label = (string) ($def->getLabel() ?? $fieldName);
       $style = self::getCardStyleName();
 
       // (A) Media reference (Medienbibliothek) -> direkt image_style + Fallback
-      if ($type === 'entity_reference' && ($def->getSetting('target_type') === 'media')) {
+      if (
+        $type === "entity_reference" &&
+        $def->getSetting("target_type") === "media"
+      ) {
         /** @var \Drupal\media\MediaInterface|null $media */
         $media = $field->entity;
         $file = null;
 
         if ($media instanceof MediaInterface) {
           // Standard-Feldname im Core-Image-Media-Bundle ist "field_media_image".
-          $file = $media->get('field_media_image')->entity ?? null;
+          $file = $media->get("field_media_image")->entity ?? null;
         }
 
         if ($file instanceof FileInterface) {
           $out[] = [
-            'label' => null,
-            'class' => 'image',
-            'value' => [
-              '#theme'      => 'image_style',
-              '#style_name' => $style,
-              '#uri'        => $file->getFileUri(),
-              '#alt'        => (string) ($media?->label() ?? $label),
-              '#title'      => '',
+            "label" => null,
+            "class" => "image",
+            "value" => [
+              "#theme" => "image_style",
+              "#style_name" => $style,
+              "#uri" => $file->getFileUri(),
+              "#alt" => (string) ($media?->label() ?? $label),
+              "#title" => "",
             ],
           ];
           $cache->addCacheableDependency($file);
@@ -90,17 +101,17 @@ final class FieldRenderHelper
           $fallback = self::getFallbackImageData();
           if ($fallback) {
             $out[] = [
-              'label' => null,
-              'class' => 'image',
-              'value' => [
-                '#theme'      => 'image_style',
-                '#style_name' => $style,
-                '#uri'        => $fallback['uri'],
-                '#alt'        => $fallback['alt'],
-                '#title'      => '',
+              "label" => null,
+              "class" => "image",
+              "value" => [
+                "#theme" => "image_style",
+                "#style_name" => $style,
+                "#uri" => $fallback["uri"],
+                "#alt" => $fallback["alt"],
+                "#title" => "",
               ],
             ];
-            foreach ($fallback['cache_deps'] as $dep) {
+            foreach ($fallback["cache_deps"] as $dep) {
               $cache->addCacheableDependency($dep);
             }
           }
@@ -109,21 +120,21 @@ final class FieldRenderHelper
       }
 
       // (B) Image field -> direkt image_style + Fallback
-      if ($type === 'image') {
+      if ($type === "image") {
         $item = $field->first();
         /** @var FileInterface|null $file */
         $file = $item?->entity;
 
         if ($file) {
           $out[] = [
-            'label' => null,
-            'class' => 'image',
-            'value' => [
-              '#theme'      => 'image_style',
-              '#style_name' => $style,
-              '#uri'        => $file->getFileUri(),
-              '#alt'        => (string) ($item->alt ?? $label),
-              '#title'      => (string) ($item->title ?? ''),
+            "label" => null,
+            "class" => "image",
+            "value" => [
+              "#theme" => "image_style",
+              "#style_name" => $style,
+              "#uri" => $file->getFileUri(),
+              "#alt" => (string) ($item->alt ?? $label),
+              "#title" => (string) ($item->title ?? ""),
             ],
           ];
           $cache->addCacheableDependency($file);
@@ -132,17 +143,17 @@ final class FieldRenderHelper
           $fallback = self::getFallbackImageData();
           if ($fallback) {
             $out[] = [
-              'label' => null,
-              'class' => 'image',
-              'value' => [
-                '#theme'      => 'image_style',
-                '#style_name' => $style,
-                '#uri'        => $fallback['uri'],
-                '#alt'        => $fallback['alt'],
-                '#title'      => '',
+              "label" => null,
+              "class" => "image",
+              "value" => [
+                "#theme" => "image_style",
+                "#style_name" => $style,
+                "#uri" => $fallback["uri"],
+                "#alt" => $fallback["alt"],
+                "#title" => "",
               ],
             ];
-            foreach ($fallback['cache_deps'] as $dep) {
+            foreach ($fallback["cache_deps"] as $dep) {
               $cache->addCacheableDependency($dep);
             }
           }
@@ -151,7 +162,7 @@ final class FieldRenderHelper
       }
 
       // (C) Entity reference (non-media)
-      if ($type === 'entity_reference') {
+      if ($type === "entity_reference") {
         $labels = [];
         foreach ($field->referencedEntities() as $ref) {
           $labels[] = $ref->label();
@@ -159,41 +170,57 @@ final class FieldRenderHelper
         }
         if ($labels) {
           $out[] = [
-            'label' => $label,
-            'value' => ['#markup' => implode(', ', $labels)],
-            'class' => 'htl-field--reference',
+            "label" => $label,
+            "value" => ["#markup" => implode(", ", $labels)],
+            "class" => "htl-field--reference",
           ];
         }
         continue;
       }
 
       // (D) text_with_summary -> Summary als HTML, sonst HTML-sicher 35 Wörter
-      if ($type === 'text_with_summary') {
+      if ($type === "text_with_summary") {
         $item = $field->first();
         if ($item) {
-          $format  = (string) ($item->format ?? 'basic_html');
-          $summary = (string) ($item->summary ?? '');
-          if (trim($summary) !== '') {
+          $format = (string) ($item->format ?? "basic_html");
+          $summary = (string) ($item->summary ?? "");
+          if (trim($summary) !== "") {
             $out[] = [
-              'label' => $label,
-              'value' => [
-                '#type'   => 'processed_text',
-                '#text'   => $summary,
-                '#format' => $format,
+              "label" => $label,
+              "value" => [
+                "#type" => "processed_text",
+                "#text" => $summary,
+                "#format" => $format,
               ],
-              'class' => 'htl-field--text',
+              "class" => "htl-field--text",
             ];
           } else {
-            $allowed     = ['a','strong','em','b','i','u','br','p','ul','ol','li','span'];
-            $trimmedHtml = static::htmlTrimWords(Xss::filter((string) ($item->value ?? ''), $allowed), 35);
+            $allowed = [
+              "a",
+              "strong",
+              "em",
+              "b",
+              "i",
+              "u",
+              "br",
+              "p",
+              "ul",
+              "ol",
+              "li",
+              "span",
+            ];
+            $trimmedHtml = static::htmlTrimWords(
+              Xss::filter((string) ($item->value ?? ""), $allowed),
+              35,
+            );
             $out[] = [
-              'label' => $label,
-              'value' => [
-                '#type'   => 'processed_text',
-                '#text'   => $trimmedHtml,
-                '#format' => $format,
+              "label" => $label,
+              "value" => [
+                "#type" => "processed_text",
+                "#text" => $trimmedHtml,
+                "#format" => $format,
               ],
-              'class' => 'htl-field--text',
+              "class" => "htl-field--text",
             ];
           }
         }
@@ -201,46 +228,58 @@ final class FieldRenderHelper
       }
 
       // (E) Long/Formatted text -> processed_text wenn Format vorhanden
-      if (in_array($type, ['text_long', 'text'], true)) {
-        $item  = $field->first();
-        $value = (string) ($item->value ?? '');
-        if (trim($value) !== '') {
-          $format = (string) ($item->format ?? 'basic_html');
+      if (in_array($type, ["text_long", "text"], true)) {
+        $item = $field->first();
+        $value = (string) ($item->value ?? "");
+        if (trim($value) !== "") {
+          $format = (string) ($item->format ?? "basic_html");
           $out[] = [
-            'label' => $label,
-            'value' => [
-              '#type'   => 'processed_text',
-              '#text'   => $value,
-              '#format' => $format,
+            "label" => $label,
+            "value" => [
+              "#type" => "processed_text",
+              "#text" => $value,
+              "#format" => $format,
             ],
-            'class' => 'htl-field--text',
+            "class" => "htl-field--text",
           ];
         }
         continue;
       }
 
       // (F) Plain strings
-      if (in_array($type, ['string', 'string_long'], true)) {
-        $raw   = $field->value ?? $field->getString();
+      if (in_array($type, ["string", "string_long"], true)) {
+        $raw = $field->value ?? $field->getString();
         $clean = trim((string) $raw);
-        if ($clean !== '') {
+        if ($clean !== "") {
           $out[] = [
-            'label' => $label,
-            'value' => ['#markup' => htmlspecialchars(static::truncate($clean, 200), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')],
-            'class' => 'htl-field--text',
+            "label" => $label,
+            "value" => [
+              "#markup" => htmlspecialchars(
+                static::truncate($clean, 200),
+                ENT_QUOTES | ENT_SUBSTITUTE,
+                "UTF-8",
+              ),
+            ],
+            "class" => "htl-field--text",
           ];
         }
         continue;
       }
 
       // (G) Fallback
-      $raw   = $field->value ?? $field->getString();
+      $raw = $field->value ?? $field->getString();
       $clean = trim((string) $raw);
-      if ($clean !== '') {
+      if ($clean !== "") {
         $out[] = [
-          'label' => $label,
-          'value' => ['#markup' => htmlspecialchars(static::truncate($clean, 200), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')],
-          'class' => 'htl-field--text',
+          "label" => $label,
+          "value" => [
+            "#markup" => htmlspecialchars(
+              static::truncate($clean, 200),
+              ENT_QUOTES | ENT_SUBSTITUTE,
+              "UTF-8",
+            ),
+          ],
+          "class" => "htl-field--text",
         ];
       }
     }
@@ -254,31 +293,32 @@ final class FieldRenderHelper
    *
    * @return array{uri:string,alt:string,cache_deps:array<CacheableDependencyInterface>}|null
    */
-  private static function getFallbackImageData(): ?array {
-    $config = Drupal::config('htl_typegrid.settings');
-    $uuid   = $config->get('fallback_media_uuid');
+  private static function getFallbackImageData(): ?array
+  {
+    $config = Drupal::config("htl_typegrid.settings");
+    $uuid = $config->get("fallback_media_uuid");
     if (!$uuid) {
       return null;
     }
 
     /** @var EntityRepositoryInterface $repo */
-    $repo  = Drupal::service('entity.repository');
-    $media = $repo->loadEntityByUuid('media', $uuid);
+    $repo = Drupal::service("entity.repository");
+    $media = $repo->loadEntityByUuid("media", $uuid);
 
     if (!$media instanceof MediaInterface) {
       return null;
     }
 
     // Standard-Feldname im Core-Bundle "image" ist "field_media_image".
-    $imageFile = $media->get('field_media_image')->entity ?? null;
+    $imageFile = $media->get("field_media_image")->entity ?? null;
     if (!$imageFile instanceof FileInterface) {
       return null;
     }
 
     return [
-      'uri'        => $imageFile->getFileUri(),
-      'alt'        => 'Dummy',
-      'cache_deps' => [$config, $media, $imageFile],
+      "uri" => $imageFile->getFileUri(),
+      "alt" => "Dummy",
+      "cache_deps" => [$config, $media, $imageFile],
     ];
   }
 
@@ -287,24 +327,28 @@ final class FieldRenderHelper
    */
   private static function htmlTrimWords(string $html, int $limit): string
   {
-    if ($limit <= 0) return '';
+    if ($limit <= 0) {
+      return "";
+    }
 
     $wordCount = 0;
-    $result = '';
+    $result = "";
     $open = [];
 
     // Match Tags oder Text
-    preg_match_all('/(<[^>]+>|[^<]+)/u', $html, $parts);
+    preg_match_all("/(<[^>]+>|[^<]+)/u", $html, $parts);
     foreach ($parts[0] as $part) {
-      if ($part !== '' && $part[0] === '<') {
+      if ($part !== "" && $part[0] === "<") {
         // Tag
         $result .= $part;
 
-        if (preg_match('/^<\s*\/\s*([a-z0-9]+)\s*>/i', $part, $m)) {
+        if (preg_match("/^<\s*\/\s*([a-z0-9]+)\s*>/i", $part, $m)) {
           // closing tag
           while (!empty($open)) {
             $t = array_pop($open);
-            if (strcasecmp($t, $m[1]) === 0) break;
+            if (strcasecmp($t, $m[1]) === 0) {
+              break;
+            }
           }
         } elseif (preg_match('/^<\s*([a-z0-9]+)\b[^>]*\/\s*>$/i', $part)) {
           // self-closing -> ignore
@@ -312,7 +356,27 @@ final class FieldRenderHelper
           // opening tag
           $tag = strtolower($m[1]);
           // Void-Tags nicht stacken
-          if (!in_array($tag, ['br','hr','img','meta','link','input','source','area','col','embed','param','track','wbr'], true)) {
+          if (
+            !in_array(
+              $tag,
+              [
+                "br",
+                "hr",
+                "img",
+                "meta",
+                "link",
+                "input",
+                "source",
+                "area",
+                "col",
+                "embed",
+                "param",
+                "track",
+                "wbr",
+              ],
+              true,
+            )
+          ) {
             $open[] = $tag;
           }
         }
@@ -320,7 +384,14 @@ final class FieldRenderHelper
       }
 
       // Text: auf Wörter splitten und zählen
-      $segments = preg_split('/(\s+)/u', $part, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY) ?: [];
+      $segments =
+        preg_split(
+          "/(\s+)/u",
+          $part,
+          -1,
+          PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY,
+        ) ?:
+        [];
       foreach ($segments as $seg) {
         if (preg_match('/^\s+$/u', $seg)) {
           // Whitespace zählt nicht, aber behalten
@@ -330,10 +401,10 @@ final class FieldRenderHelper
         // Ein Wort
         if ($wordCount >= $limit) {
           // Limit erreicht: ellipsis und abbrechen
-          $result = rtrim($result) . '…';
+          $result = rtrim($result) . "…";
           // schließe offene Tags
           while (!empty($open)) {
-            $result .= '</' . array_pop($open) . '>';
+            $result .= "</" . array_pop($open) . ">";
           }
           return $result;
         }
@@ -344,14 +415,16 @@ final class FieldRenderHelper
 
     // Ende erreicht, ggf. Tags schließen
     while (!empty($open)) {
-      $result .= '</' . array_pop($open) . '>';
+      $result .= "</" . array_pop($open) . ">";
     }
     return $result;
   }
 
   private static function truncate(string $text, int $max): string
   {
-    $text = preg_replace('/\s+/', ' ', trim($text)) ?? '';
-    return (mb_strlen($text) <= $max) ? $text : rtrim(mb_substr($text, 0, $max - 1)) . '…';
+    $text = preg_replace("/\s+/", " ", trim($text)) ?? "";
+    return mb_strlen($text) <= $max
+      ? $text
+      : rtrim(mb_substr($text, 0, $max - 1)) . "…";
   }
 }

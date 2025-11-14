@@ -1,6 +1,6 @@
-name: 'HTL Typegrid'
+name: "HTL Typegrid"
 type: module
-description: 'Grid-Block with Cards'
+description: "Grid-Block with Cards"
 package: HTL
 core_version_requirement: ^11
 version: 0.2.2

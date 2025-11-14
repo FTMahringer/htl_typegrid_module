@@ -1,6 +1,11 @@
+/* ========================================================================== */
+/*  Grid-Layout                                                               */
+/* ========================================================================== */
+
 .htl-grid {
   --gap: 1rem;
   --cols: var(--ft-grid-cols, 3);
+
   display: grid;
   grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
   gap: var(--gap);
@@ -8,38 +13,61 @@
 
 .htl-grid__group {
   grid-column: 1 / -1;
-  margin: 1rem 0 .25rem;
-  font-size: clamp(1.05rem, 1vw + .75rem, 1.35rem);
+  margin: 1rem 0 0.25rem;
+  font-size: clamp(1.05rem, 1vw + 0.75rem, 1.35rem);
+  font-weight: 700;
 }
 
-/* ===== Card ===== */
+/* Responsiv */
+@media (max-width: 1024px) {
+  .htl-grid {
+    --cols: min(var(--ft-grid-cols, 3), 2);
+  }
+}
+@media (max-width: 640px) {
+  .htl-grid {
+    --cols: 1;
+  }
+}
+
+/* ========================================================================== */
+/*  Card-Container                                                            */
+/* ========================================================================== */
+
 .htl-card {
   --card-radius: 16px;
-  --card-bg: #fff;
+  --card-bg: #ffffff;
   --card-border: color-mix(in oklab, #000 10%, transparent);
-  --card-shadow: 0 10px 24px rgba(0,0,0,.10);
-  --card-shadow-hover: 0 18px 36px rgba(0,0,0,.16);
+  --card-shadow: 0 10px 24px rgba(0, 0, 0, 0.1);
+  --card-shadow-hover: 0 18px 36px rgba(0, 0, 0, 0.16);
 
   position: relative;
+  display: flex;
+  flex-direction: column;
+
   background: var(--card-bg);
   border-radius: var(--card-radius);
   border: 1px solid var(--card-border);
   box-shadow: var(--card-shadow);
   overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+
+  transition:
+    transform 0.16s ease,
+    box-shadow 0.16s ease,
+    border-color 0.16s ease;
 }
+
 .htl-card:hover {
   transform: translateY(-3px);
   box-shadow: var(--card-shadow-hover);
   border-color: color-mix(in oklab, #000 18%, transparent);
 }
 
-/* Klickbarer Zustand (Cursor etc.) */
-.htl-card--clickable { cursor: pointer; }
+/* Ganze Card klickbar */
+.htl-card--clickable {
+  cursor: pointer;
+}
 
-/* Stretched-link Overlay (macht die ganze Card klickbar) */
 .htl-card__overlay {
   position: absolute;
   inset: 0;
@@ -49,40 +77,54 @@
   outline: none;
 }
 
-/* Fokus-Ring für Tastatur */
 .htl-card--clickable:has(.htl-card__overlay:focus-visible),
 .htl-card--clickable:focus-within {
-  box-shadow: 0 0 0 3px color-mix(in oklab, #4f46e5 45%, white), var(--card-shadow-hover);
+  box-shadow:
+    0 0 0 3px color-mix(in oklab, #4f46e5 45%, white),
+    var(--card-shadow-hover);
 }
 
-/* Media */
+/* ========================================================================== */
+/*  Media                                                                     */
+/* ========================================================================== */
+
 .htl-card__media {
+  margin: 0;
   aspect-ratio: 16 / 9;
   overflow: hidden;
-  margin: 0;
-  background: linear-gradient(180deg, rgba(0,0,0,.04), rgba(0,0,0,.02));
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.04), rgba(0, 0, 0, 0.02));
 }
+
 .htl-card__media img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
   display: block;
+  object-fit: cover;
+
   transform: scale(1);
-  transition: transform .3s ease;
+  transition: transform 0.3s ease;
 }
+
 .htl-card:hover .htl-card__media img {
   transform: scale(1.04);
 }
 
-/* Body */
-.htl-card__body { padding: 1rem 1.05rem 1.1rem; }
+/* ========================================================================== */
+/*  Body / Titel                                                              */
+/* ========================================================================== */
+
+.htl-card__body {
+  padding: 1rem 1.05rem 1.1rem;
+}
+
 .htl-card__title {
-  margin: 0 0 .55rem;
+  margin: 0 0 0.55rem;
   font-weight: 800;
   line-height: 1.2;
-  letter-spacing: .2px;
+  letter-spacing: 0.2px;
 }
-/* Links in der Card sollen über dem Overlay liegen */
+
+/* Links müssen über dem Overlay liegen */
 .htl-card__title a,
 .htl-card__body a,
 .htl-card__media a {
@@ -97,26 +139,66 @@
   text-decoration: underline;
 }
 
+/* ========================================================================== */
+/*  Meta-Bereich (Datum, Teaser, HTML-Text mit Listen, ...)                   */
+/* ========================================================================== */
 
-
-/* Meta */
 .htl-card__meta {
-  list-style: none;
-  font-size: .85rem;
+  font-size: 0.85rem;
   margin: 0;
   padding: 0;
-  display: grid;
-  gap: .4rem;
+  display: block;
 }
-.htl-card__meta-row { display: flex; gap: .5rem; align-items: baseline; }
-.htl-card__meta-label { opacity: .7; }
-.htl-card__meta-value :where(p, ul, ol) { margin: 0; }
 
-/* Responsiv */
-@media (max-width: 1024px) { .htl-grid { --cols: min(var(--ft-grid-cols, 3), 2); } }
-@media (max-width: 640px)  { .htl-grid { --cols: 1; } }
+/* Jede Meta-Zeile untereinander */
+.htl-card__meta-row {
+  display: block;
+  margin-bottom: 0.4rem;
+}
 
-/* Barrierefreiheit / Motion */
+.htl-card__meta-row:last-child {
+  margin-bottom: 0;
+}
+
+/* Falls du Label/Value-Struktur verwendest (optional) */
+.htl-card__meta-label {
+  font-weight: 600;
+  opacity: 0.7;
+  margin-right: 0.35rem;
+  display: inline-block;
+}
+
+.htl-card__meta-value {
+  display: inline;
+}
+
+/* Speziell für Textfelder (processed_text) mit <p>, <ul>, <ol> etc. */
+.htl-card__meta-row.htl-field--text p {
+  margin: 0 0 0.25rem;
+}
+
+.htl-card__meta-row.htl-field--text ul,
+.htl-card__meta-row.htl-field--text ol {
+  margin: 0 0 0.3rem 1.2rem;
+  padding: 0;
+}
+
+.htl-card__meta-row.htl-field--text li {
+  margin: 0 0 0.15rem;
+}
+
+/* Generell: innerhalb der Meta keine extra großen Abstände */
+.htl-card__meta-row :where(p:last-child, ul:last-child, ol:last-child) {
+  margin-bottom: 0;
+}
+
+/* ========================================================================== */
+/*  Motion-Reduktion                                                          */
+/* ========================================================================== */
+
 @media (prefers-reduced-motion: reduce) {
-  .htl-card, .htl-card__media img { transition: none; }
+  .htl-card,
+  .htl-card__media img {
+    transition: none;
+  }
 }

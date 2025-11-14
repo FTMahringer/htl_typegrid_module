@@ -29,4 +29,3 @@ function htl_typegrid_theme(array $existing, $type, $theme, $path): array {
     ],
   ];
 }
-
