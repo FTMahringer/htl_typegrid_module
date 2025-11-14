@@ -4,11 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       release_type:
-        description: 'release = minor, patch = patch, upgrade = major'
+        description: 'upgrade = major x.0.0, release = minor 0.x.0, patch = patch  0.0.x'
         required: true
         default: 'release'
         type: choice
-        options: [release, patch, upgrade]
+        options: [patch, release, upgrade]
   push:
     branches: [ main, master ]
     paths-ignore:
