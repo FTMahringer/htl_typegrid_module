@@ -17,6 +17,7 @@ use Drupal\htl_typegrid\Service\FieldRenderer;
 use Drupal\htl_typegrid\Service\GridCardBuilder;
 use Drupal\htl_typegrid\Service\GridConfigFactory;
 use Drupal\htl_typegrid\Service\GridQueryService;
+use Drupal\htl_typegrid\Service\GridExtraFieldInstaller;
 use Drupal\htl_typegrid\Form\GridBlockFormBuilder;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -42,6 +43,7 @@ final class GridBlock extends BlockBase implements
     private readonly GridCardBuilder $cardBuilder,
     GridConfigFactory $configFactory,
     GridBlockFormBuilder $formBuilder,
+    private readonly GridExtraFieldInstaller $extraFieldInstaller, // <--- neu
   ) {
     parent::__construct($configuration, $plugin_id, $plugin_definition);
     $this->configFactory = $configFactory;
@@ -71,6 +73,10 @@ final class GridBlock extends BlockBase implements
     $gridConfigFactory = new GridConfigFactory();
     $formBuilder = new GridBlockFormBuilder($bundleInfo);
 
+
+    /** @var GridExtraFieldInstaller $extraFieldInstaller */
+    $extraFieldInstaller = $container->get('htl_typegrid.grid_extra_field_installer');
+
     return new self(
       $configuration,
       $plugin_id,
@@ -79,6 +85,7 @@ final class GridBlock extends BlockBase implements
       $cardBuilder,
       $gridConfigFactory,
       $formBuilder,
+      $extraFieldInstaller,
     );
   }
 
@@ -140,11 +147,20 @@ final class GridBlock extends BlockBase implements
 
   public function blockSubmit($form, FormStateInterface $form_state): void
   {
-    // zuerst parent, damit Standard-Daten gespeichert werden
     parent::blockSubmit($form, $form_state);
-    // dann unsere eigenen Einstellungen + bundle_fields
     $this->formBuilder->submit($this, $form, $form_state);
+
+    $config = $this->configFactory->fromBlockConfiguration(
+      $this->getConfiguration()
+    );
+
+    if (!empty($config->bundle)) {
+      // Nur dann, wenn Bundle ein Bild/Media-Feld hat, wird wirklich was angelegt.
+      $this->extraFieldInstaller->ensureImageStyleFieldsForBundle($config->bundle);
+    }
   }
+
+
 
   // dein blockForm()/blockSubmit() usw. kannst du unterhalb weiter drin lassen
 }

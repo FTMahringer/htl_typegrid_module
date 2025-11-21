@@ -1,0 +1,45 @@
+services:
+  htl_typegrid.service_manager:
+    class: Drupal\htl_typegrid\Service\GridServiceManager
+    arguments:
+      - "@entity_type.manager"
+      - "@entity_type.bundle.info"
+      - "@entity.repository"
+      - "@config.factory"
+
+  htl_typegrid.configuration_manager:
+    class: Drupal\htl_typegrid\Service\ConfigurationManager
+    arguments:
+      - "@config.factory"
+      - "@cache.default"
+
+  htl_typegrid.grid_config_factory:
+    class: Drupal\htl_typegrid\Service\GridConfigFactory
+
+  htl_typegrid.field_renderer:
+    class: Drupal\htl_typegrid\Service\FieldRenderer
+    arguments:
+      - "@entity.repository"
+      - "@config.factory"
+
+  htl_typegrid.grid_card_builder:
+    class: Drupal\htl_typegrid\Service\GridCardBuilder
+    arguments:
+      - "@htl_typegrid.field_renderer"
+      - "@entity_type.bundle.info"
+
+  htl_typegrid.grid_query_service:
+    class: Drupal\htl_typegrid\Service\GridQueryService
+    arguments:
+      - "@entity_type.manager"
+
+  htl_typegrid.grid_form_builder:
+    class: Drupal\htl_typegrid\Form\GridBlockFormBuilder
+    arguments:
+      - "@entity_type.bundle.info"
+
+  htl_typegrid.grid_extra_field_installer:
+    class: Drupal\htl_typegrid\Service\GridExtraFieldInstaller
+    arguments:
+      - "@entity_display.repository"
+      - "@entity_field.manager"

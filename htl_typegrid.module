@@ -2,6 +2,11 @@
 
 declare(strict_types=1);
 
+use Drupal\field\Entity\FieldStorageConfig;
+use Drupal\image\Entity\ImageStyle;
+use Drupal\Core\Form\FormStateInterface;
+
+
 /**
  * @file
  * Registriert Twig-Template für den Grid-Block.
@@ -28,4 +33,68 @@ function htl_typegrid_theme(array $existing, $type, $theme, $path): array {
       ],
     ],
   ];
+}
+
+
+/**
+ * Allowed values für das Bildstil-Dropdown.
+ *
+ * Wird in FieldStorageConfig als 'allowed_values_function' verwendet.
+ *
+ * @param \Drupal\field\Entity\FieldStorageConfig $definition
+ * @param \Drupal\field\Entity\FieldConfig|null $instance
+ * @param bool|null $cacheable
+ *
+ * @return array
+ *   Key => Label.
+ */
+function htl_typegrid_image_style_allowed_values(FieldStorageConfig $definition, $instance = NULL, &$cacheable = NULL): array {
+  $values = [];
+
+  // 1) Spezielle Einträge.
+  $values['default'] = t('- Default -'); // benutzt später Grid-eigenen Bildstil.
+  $values['custom']  = t('- Custom -');  // zeigt Width/Height-Felder an.
+
+  // 2) Alle Bildstile aus Drupal.
+  $styles = ImageStyle::loadMultiple();
+  foreach ($styles as $id => $style) {
+    $values[$id] = $style->label();
+  }
+
+  return $values;
+}
+
+
+/**
+ * Zeigt Custom Width/Height nur, wenn im Dropdown "custom" gewählt ist.
+ */
+function htl_typegrid_form_node_form_alter(array &$form, FormStateInterface $form_state, string $form_id): void {
+  $style_field = 'field_htl_grid_image_style';
+  $width_field = 'field_htl_grid_custom_width';
+  $height_field = 'field_htl_grid_custom_height';
+
+  if (
+    isset($form[$style_field]) &&
+    isset($form[$width_field]) &&
+    isset($form[$height_field])
+  ) {
+    // Der Name hängt ein bisschen vom Widget ab, meistens so:
+    $selector = ':input[name="' . $style_field . '[0][value]"]';
+
+    $states = [
+      'visible' => [
+        $selector => ['value' => 'custom'],
+      ],
+    ];
+
+    $form[$width_field]['#states'] = $states;
+    $form[$height_field]['#states'] = $states;
+
+    // Sicherheitshalber noch min/step setzen.
+    $form[$width_field]['widget'][0]['value']['#min'] = 1;
+    $form[$width_field]['widget'][0]['value']['#step'] = 1;
+
+    $form[$height_field]['widget'][0]['value']['#min'] = 1;
+    $form[$height_field]['widget'][0]['value']['#step'] = 1;
+  }
 }
