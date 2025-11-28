@@ -157,13 +157,16 @@ final class PinnedGridBlock extends BlockBase implements ContainerFactoryPluginI
     $form['fields']['wrapper'] = ['#type' => 'container', '#attributes' => ['id' => 'htl-pinned-fields-wrapper']];
 
     // Get the value from either the user input (during AJAX) or the saved config.
+    // We cannot use $form_state->getValue() or hasValue() here because SubformState
+    // requires #parents to be set, which only happens during form processing.
     $userInput = $form_state->getUserInput();
     $selectedSource = '';
     if (!empty($userInput['settings']['source_block'])) {
       $selectedSource = (string) $userInput['settings']['source_block'];
     }
-    elseif ($form_state->hasValue(['settings', 'source_block'])) {
-      $selectedSource = (string) $form_state->getValue(['settings', 'source_block']);
+    elseif (!empty($userInput['source_block'])) {
+      // Fallback for direct input without settings wrapper.
+      $selectedSource = (string) $userInput['source_block'];
     }
     else {
       $selectedSource = (string) ($config['source_block'] ?? '');
@@ -175,7 +178,15 @@ final class PinnedGridBlock extends BlockBase implements ContainerFactoryPluginI
     }
 
     $options = $this->fieldManager->getAllowedPinnedFieldOptions($bundle);
-    $rawSelected = (array) ($form_state->getValue(['fields', 'selected_fields']) ?? []);
+    // Get selected fields from user input (during AJAX) or saved config.
+    // Avoid using $form_state->getValue() due to SubformState #parents issue.
+    $rawSelected = [];
+    if (!empty($userInput['settings']['fields']['selected_fields'])) {
+      $rawSelected = (array) $userInput['settings']['fields']['selected_fields'];
+    }
+    elseif (!empty($userInput['fields']['selected_fields'])) {
+      $rawSelected = (array) $userInput['fields']['selected_fields'];
+    }
     $savedSelected = (array) ($config['selected_fields'] ?? []);
     $selectedKeys = !empty($rawSelected) ? array_keys(array_filter($rawSelected)) : $savedSelected;
     $default = $selectedKeys ? array_combine($selectedKeys, $selectedKeys) : [];
@@ -198,8 +209,11 @@ final class PinnedGridBlock extends BlockBase implements ContainerFactoryPluginI
     $this->configuration['card_gap'] = (string) ($values['layout']['card_gap'] ?? 'medium');
     $this->configuration['card_radius'] = (string) ($values['layout']['card_radius'] ?? 'medium');
 
-    $selected = (array) ($values['fields']['selected_fields'] ?? []);
-    $this->configuration['selected_fields'] = array_values(array_filter(array_keys($selected)));
+    // The selected_fields checkboxes are nested under fields > wrapper > selected_fields.
+    // Checkboxes return field_name => field_name for checked, field_name => 0 for unchecked.
+    // array_filter removes the 0 values, array_values re-indexes the array.
+    $selected = (array) ($values['fields']['wrapper']['selected_fields'] ?? []);
+    $this->configuration['selected_fields'] = array_values(array_filter($selected));
 
     $bundle = (string) ($this->blockResolver->getBundleFromGridBlockId($this->configuration['source_block']) ?? '');
     if ($bundle !== '') {
