@@ -1,45 +1,97 @@
 services:
-  htl_typegrid.service_manager:
-    class: Drupal\htl_typegrid\Service\GridServiceManager
+  htl_grid.query:
+    class: Drupal\htl_typegrid\Service\GridQueryService
+
     arguments:
       - "@entity_type.manager"
-      - "@entity_type.bundle.info"
+
+      - "@htl_grid.field_processor"
+
+      - "@config.factory"
+
       - "@entity.repository"
-      - "@config.factory"
 
-  htl_typegrid.configuration_manager:
-    class: Drupal\htl_typegrid\Service\ConfigurationManager
+      - "@htl_grid.field_manager"
+
+  htl_grid.field_processor:
+    class: Drupal\htl_typegrid\Service\GridFieldProcessor
+
+  htl_grid.image_renderer:
+    class: Drupal\htl_typegrid\Service\GridImageRenderer
+
     arguments:
-      - "@config.factory"
-      - "@cache.default"
+      - "@file_url_generator"
 
-  htl_typegrid.grid_config_factory:
+      - "@config.factory"
+
+  htl_grid.meta_builder:
+    class: Drupal\htl_typegrid\Service\GridMetaBuilder
+
+    arguments:
+      - "@htl_grid.field_renderer"
+
+  htl_grid.field_renderer:
+    class: Drupal\htl_typegrid\Service\FieldRenderer
+
+    arguments:
+      - "@entity.repository"
+
+      - "@config.factory"
+
+  htl_grid.card_builder:
+    class: Drupal\htl_typegrid\Service\GridCardBuilder
+
+    arguments:
+      - "@htl_grid.image_renderer"
+
+      - "@htl_grid.meta_builder"
+
+      - "@htl_grid.field_renderer"
+
+  htl_grid.config_factory:
     class: Drupal\htl_typegrid\Service\GridConfigFactory
 
-  htl_typegrid.field_renderer:
-    class: Drupal\htl_typegrid\Service\FieldRenderer
-    arguments:
-      - "@entity.repository"
-      - "@config.factory"
+  htl_grid.cache_helper:
+    class: Drupal\htl_typegrid\Helper\CacheHelper
 
-  htl_typegrid.grid_card_builder:
-    class: Drupal\htl_typegrid\Service\GridCardBuilder
-    arguments:
-      - "@htl_typegrid.field_renderer"
-      - "@entity_type.bundle.info"
+  htl_grid.field_manager:
+    class: Drupal\htl_typegrid\Service\GridFieldManager
 
-  htl_typegrid.grid_query_service:
-    class: Drupal\htl_typegrid\Service\GridQueryService
     arguments:
       - "@entity_type.manager"
 
-  htl_typegrid.grid_form_builder:
-    class: Drupal\htl_typegrid\Form\GridBlockFormBuilder
+      - "@entity_display.repository"
+
+  htl_grid.block_resolver:
+    class: Drupal\htl_typegrid\Service\GridBlockResolver
+    arguments:
+      - "@entity_type.manager"
+      - "@entity_type.bundle.info"
+
+  htl_grid.section.bundle:
+    class: Drupal\htl_typegrid\Form\Section\BundleSection
     arguments:
       - "@entity_type.bundle.info"
 
-  htl_typegrid.grid_extra_field_installer:
-    class: Drupal\htl_typegrid\Service\GridExtraFieldInstaller
+  htl_grid.section.layout:
+    class: Drupal\htl_typegrid\Form\Section\LayoutSection
+
+  htl_grid.section.filter:
+    class: Drupal\htl_typegrid\Form\Section\FilterSection
+
+  htl_grid.section.fields:
+    class: Drupal\htl_typegrid\Form\Section\FieldsSection
+
+  htl_grid.form_builder:
+    class: Drupal\htl_typegrid\Form\GridBlockFormBuilder
+
     arguments:
-      - "@entity_display.repository"
-      - "@entity_field.manager"
+      - "@htl_grid.section.bundle"
+
+      - "@htl_grid.section.layout"
+
+      - "@htl_grid.section.filter"
+
+      - "@htl_grid.section.fields"
+
+      - "@htl_grid.field_manager"

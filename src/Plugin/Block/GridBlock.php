@@ -5,35 +5,21 @@ declare(strict_types=1);
 namespace Drupal\htl_typegrid\Plugin\Block;
 
 use Drupal\Core\Block\BlockBase;
-use Drupal\Core\Form\FormStateInterface;
-use Drupal\Core\Block\Annotation\Block;
-use Drupal\Core\Cache\CacheableMetadata;
-use Drupal\Core\Config\ConfigFactoryInterface;
-use Drupal\Core\Entity\EntityRepositoryInterface;
-use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
-use Drupal\htl_typegrid\Service\FieldRenderer;
+use Drupal\htl_typegrid\Service\GridQueryService;
 use Drupal\htl_typegrid\Service\GridCardBuilder;
 use Drupal\htl_typegrid\Service\GridConfigFactory;
-use Drupal\htl_typegrid\Service\GridQueryService;
-use Drupal\htl_typegrid\Service\GridExtraFieldInstaller;
-use Drupal\htl_typegrid\Form\GridBlockFormBuilder;
+use Drupal\htl_typegrid\Helper\CacheHelper;
+use Drupal\htl_typegrid\Model\GridConfig;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
- * Provides the HTL Grid block.
- *
  * @Block(
- *   id = "htl_grid_block",
- *   admin_label = @Translation("HTL-Typegrid")
+ *   id = "htl_typegrid_block",
+ *   admin_label = @Translation("HTL TypeGrid"),
  * )
  */
-final class GridBlock extends BlockBase implements
-  ContainerFactoryPluginInterface
-{
-  private GridConfigFactory $configFactory;
-  private GridBlockFormBuilder $formBuilder;
+final class GridBlock extends BlockBase implements ContainerFactoryPluginInterface {
 
   public function __construct(
     array $configuration,
@@ -41,126 +27,162 @@ final class GridBlock extends BlockBase implements
     $plugin_definition,
     private readonly GridQueryService $queryService,
     private readonly GridCardBuilder $cardBuilder,
-    GridConfigFactory $configFactory,
-    GridBlockFormBuilder $formBuilder,
-    private readonly GridExtraFieldInstaller $extraFieldInstaller, // <--- neu
+    private readonly GridConfigFactory $configFactory,
+    private readonly CacheHelper $cacheHelper,
   ) {
     parent::__construct($configuration, $plugin_id, $plugin_definition);
-    $this->configFactory = $configFactory;
-    $this->formBuilder = $formBuilder;
   }
 
-  public static function create(
-    ContainerInterface $container,
-    array $configuration,
-    $plugin_id,
-    $plugin_definition,
-  ): self {
-    // Core-Services aus dem Container holen
-    /** @var EntityTypeManagerInterface $etm */
-    $etm = $container->get("entity_type.manager");
-    /** @var EntityTypeBundleInfoInterface $bundleInfo */
-    $bundleInfo = $container->get("entity_type.bundle.info");
-    /** @var EntityRepositoryInterface $entityRepo */
-    $entityRepo = $container->get("entity.repository");
-    /** @var ConfigFactoryInterface $configFactory */
-    $configFactory = $container->get("config.factory");
-
-    // Unsere "Services" manuell bauen – völlig okay
-    $gridQuery = new GridQueryService($etm);
-    $fieldRenderer = new FieldRenderer($entityRepo, $configFactory);
-    $cardBuilder = new GridCardBuilder($fieldRenderer, $bundleInfo);
-    $gridConfigFactory = new GridConfigFactory();
-    $formBuilder = new GridBlockFormBuilder($bundleInfo);
-
-
-    /** @var GridExtraFieldInstaller $extraFieldInstaller */
-    $extraFieldInstaller = $container->get('htl_typegrid.grid_extra_field_installer');
-
+  public static function create(ContainerInterface $container, array $configuration, $plugin_id, $plugin_definition): self {
     return new self(
       $configuration,
       $plugin_id,
       $plugin_definition,
-      $gridQuery,
-      $cardBuilder,
-      $gridConfigFactory,
-      $formBuilder,
-      $extraFieldInstaller,
+      $container->get('htl_grid.query'),
+      $container->get('htl_grid.card_builder'),
+      $container->get('htl_grid.config_factory'),
+      $container->get('htl_grid.cache_helper'),
     );
   }
 
-  public function build(): array
-  {
-    $config = $this->configFactory->fromBlockConfiguration(
-      $this->getConfiguration(),
+  /**
+   * {@inheritdoc}
+   */
+  public function defaultConfiguration(): array {
+    return [
+      'bundle' => '',
+      'columns' => 3,
+      'rows' => 2,
+      'layout_preset' => GridConfig::PRESET_STANDARD,
+      'image_position' => GridConfig::IMAGE_TOP,
+      'card_gap' => 'medium',
+      'card_radius' => 'medium',
+      'filters' => [
+        'sort_mode' => 'created',
+        'alpha_field' => 'title',
+        'direction' => 'DESC',
+      ],
+      'bundle_fields' => [],
+      'css_classes' => [],
+      'image_settings' => [],
+    ];
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function build(): array {
+    $configArray = $this->getConfiguration();
+
+    // Create strongly typed GridConfig
+    $config = $this->configFactory->fromArray($configArray);
+
+    // Load DTO nodes
+    $nodes = $this->queryService->loadNodes($config);
+
+    // Create cards
+    $cards = $this->cardBuilder->buildCards($nodes, $config);
+
+    // Debug-Log (haben wir schon gesehen)
+    \Drupal::logger('htl_typegrid')->notice(
+      'Typegrid debug: bundle=@bundle, rows=@rows, cols=@cols, preset=@preset, imgPos=@imgPos, nodes=@nodes, cards=@cards, fields=@fields',
+      [
+        '@bundle' => $config->bundle,
+        '@rows'   => $config->rows,
+        '@cols'   => $config->columns,
+        '@preset' => $config->layoutPreset,
+        '@imgPos' => $config->imagePosition,
+        '@nodes'  => count($nodes),
+        '@cards'  => count($cards),
+        '@fields' => count($config->fields),
+      ]
     );
 
-    if (!$config->bundle) {
-      return [
-        "#markup" => $this->t(
-          "Please configure a content type for this grid block.",
-        ),
-      ];
+    // Debug individual cards
+    foreach ($cards as $index => $card) {
+      \Drupal::logger('htl_typegrid')->notice(
+        'Card @idx: title=@title, imageHtml=@img, metaCount=@meta',
+        [
+          '@idx' => $index,
+          '@title' => $card->title,
+          '@img' => $card->imageHtml ? 'YES (' . strlen($card->imageHtml) . ' chars)' : 'NO',
+          '@meta' => count($card->metaItems),
+        ]
+      );
     }
 
-    $cache = new CacheableMetadata();
-
-    // 1) Nodes für das Bundle holen
-    $nodes = $this->queryService->loadNodesForBundle(
-      $config,
-      $config->bundle,
-      $cache,
-    );
-
-    // 2) Struktur für Twig bauen
-    $nodesByBundle = [$config->bundle => $nodes];
-    $bundlesData = $this->cardBuilder->buildBundlesData(
-      $config,
-      $nodesByBundle,
-      $cache,
-    );
-
-    // 3) Render-Array bauen
+    // Render-Array fürs Twig-Template
     $build = [
-      "#theme" => "htl_grid_block",
-      "#bundles_data" => $bundlesData,
-      "#columns" => $config->columns,
-      "#rows" => $config->rows,
-      "#filters" => [
-        "sort_mode" => $config->filters->sortMode,
-        "alpha_field" => $config->filters->alphaField,
-        "direction" => $config->filters->normalizedDirection(),
+      '#theme'   => 'htl_grid_block',
+      '#cards'   => $cards,
+      '#columns' => $config->columns,
+      '#rows'    => $config->rows,
+      '#config'  => $config,
+      '#attached' => [
+        'library' => [
+          'htl_typegrid/grid',
+        ],
       ],
     ];
 
-    $cache->applyTo($build);
+    // Debug: Log build array structure
+    \Drupal::logger('htl_typegrid')->notice(
+      'Build array: cards count=@count, columns=@cols, config_bundle=@bundle',
+      [
+        '@count' => count($build['#cards']),
+        '@cols' => $build['#columns'],
+        '@bundle' => is_object($build['#config']) ? $build['#config']->bundle : 'NULL',
+      ]
+    );
+
+    $nids = array_map(static fn($node) => $node->id, $nodes);
+    $this->cacheHelper->addNodeListCache($build, $config->bundle, $nids);
+
     return $build;
   }
 
-  public function blockForm($form, FormStateInterface $form_state): array
-  {
-    // erst den Standard-Kram von BlockBase
+  /**
+   * {@inheritdoc}
+   */
+  public function blockForm($form, $form_state) {
     $form = parent::blockForm($form, $form_state);
-    // dann unsere Extras über den FormBuilder
-    return $this->formBuilder->build($this, $form, $form_state);
+    return \Drupal::service('htl_grid.form_builder')->build($this, $form, $form_state);
   }
 
-  public function blockSubmit($form, FormStateInterface $form_state): void
-  {
-    parent::blockSubmit($form, $form_state);
-    $this->formBuilder->submit($this, $form, $form_state);
-
-    $config = $this->configFactory->fromBlockConfiguration(
-      $this->getConfiguration()
+  /**
+   * {@inheritdoc}
+   */
+  public function blockValidate($form, $form_state) {
+    // Debug: Log the form values structure to understand the path
+    $values = $form_state->getValues();
+    \Drupal::logger('htl_typegrid')->notice(
+      'blockValidate - Form values keys: @keys',
+      ['@keys' => implode(', ', array_keys($values))]
     );
 
-    if (!empty($config->bundle)) {
-      // Nur dann, wenn Bundle ein Bild/Media-Feld hat, wird wirklich was angelegt.
-      $this->extraFieldInstaller->ensureImageStyleFieldsForBundle($config->bundle);
+    // Log layout specifically
+    if (isset($values['layout'])) {
+      \Drupal::logger('htl_typegrid')->notice(
+        'blockValidate - layout keys: @keys',
+        ['@keys' => implode(', ', array_keys($values['layout']))]
+      );
+    }
+
+    // Also check user input
+    $input = $form_state->getUserInput();
+    if (isset($input['settings']['layout'])) {
+      \Drupal::logger('htl_typegrid')->notice(
+        'blockValidate - input settings.layout keys: @keys',
+        ['@keys' => implode(', ', array_keys($input['settings']['layout']))]
+      );
     }
   }
 
-
-
-  // dein blockForm()/blockSubmit() usw. kannst du unterhalb weiter drin lassen
+  /**
+   * {@inheritdoc}
+   */
+  public function blockSubmit($form, $form_state) {
+    parent::blockSubmit($form, $form_state);
+    \Drupal::service('htl_grid.form_builder')->submit($this, $form, $form_state);
+  }
 }

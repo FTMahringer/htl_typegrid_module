@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use Drupal\field\Entity\FieldStorageConfig;
 use Drupal\image\Entity\ImageStyle;
-use Drupal\Core\Form\FormStateInterface;
 
 
 /**
@@ -12,9 +11,6 @@ use Drupal\Core\Form\FormStateInterface;
  * Registriert Twig-Template für den Grid-Block.
  */
 
-/**
- * Implements hook_theme().
- */
 
 function htl_typegrid_theme(array $existing, $type, $theme, $path): array {
   return [
@@ -23,17 +19,27 @@ function htl_typegrid_theme(array $existing, $type, $theme, $path): array {
       'path' => $path . '/templates',
       'variables' => [
         'bundles_data' => [],
+        'cards' => [],
         'columns' => 3,
         'rows' => 2,
-        'filters' => [
-          'sort_mode' => 'newest',
-          'alpha_field' => 'title',
-          'direction' => 'ASC',
-        ],
+
+        'filters' => ['sort_mode' => 'created', 'alpha_field' => 'title', 'direction' => 'DESC'],
+        'config' => NULL,
+      ],
+    ],
+    'htl_grid_pinned_block' => [
+      'template' => 'htl-grid-pinned-block',
+      'path' => $path . '/templates',
+      'variables' => [
+        'cards' => [],
+        'columns' => 3,
+        'rows' => 1,
+        'config' => NULL,
       ],
     ],
   ];
 }
+
 
 
 /**
@@ -51,50 +57,14 @@ function htl_typegrid_theme(array $existing, $type, $theme, $path): array {
 function htl_typegrid_image_style_allowed_values(FieldStorageConfig $definition, $instance = NULL, &$cacheable = NULL): array {
   $values = [];
 
-  // 1) Spezielle Einträge.
-  $values['default'] = t('- Default -'); // benutzt später Grid-eigenen Bildstil.
-  $values['custom']  = t('- Custom -');  // zeigt Width/Height-Felder an.
+  // Default option - uses grid's default style.
+  $values['default'] = t('- Default -');
 
-  // 2) Alle Bildstile aus Drupal.
+  // All image styles from Drupal.
   $styles = ImageStyle::loadMultiple();
   foreach ($styles as $id => $style) {
     $values[$id] = $style->label();
   }
 
   return $values;
-}
-
-
-/**
- * Zeigt Custom Width/Height nur, wenn im Dropdown "custom" gewählt ist.
- */
-function htl_typegrid_form_node_form_alter(array &$form, FormStateInterface $form_state, string $form_id): void {
-  $style_field = 'field_htl_grid_image_style';
-  $width_field = 'field_htl_grid_custom_width';
-  $height_field = 'field_htl_grid_custom_height';
-
-  if (
-    isset($form[$style_field]) &&
-    isset($form[$width_field]) &&
-    isset($form[$height_field])
-  ) {
-    // Der Name hängt ein bisschen vom Widget ab, meistens so:
-    $selector = ':input[name="' . $style_field . '[0][value]"]';
-
-    $states = [
-      'visible' => [
-        $selector => ['value' => 'custom'],
-      ],
-    ];
-
-    $form[$width_field]['#states'] = $states;
-    $form[$height_field]['#states'] = $states;
-
-    // Sicherheitshalber noch min/step setzen.
-    $form[$width_field]['widget'][0]['value']['#min'] = 1;
-    $form[$width_field]['widget'][0]['value']['#step'] = 1;
-
-    $form[$height_field]['widget'][0]['value']['#min'] = 1;
-    $form[$height_field]['widget'][0]['value']['#step'] = 1;
-  }
 }

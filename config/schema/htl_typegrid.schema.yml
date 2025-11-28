@@ -1,10 +1,106 @@
 htl_typegrid.settings:
   type: config_object
-  label: 'HTL Typegrid settings'
+  label: "HTL Typegrid settings"
   mapping:
     fallback_media_uuid:
       type: string
-      label: 'Fallback media UUID'
+      label: "Fallback media UUID"
     image_style:
       type: string
-      label: 'Card image style'
+      label: "Card image style"
+
+block.settings.htl_typegrid_block:
+  type: block_settings
+  label: "HTL Typegrid block settings"
+  mapping:
+    bundle:
+      type: string
+      label: "Content type bundle"
+    columns:
+      type: integer
+      label: "Number of columns"
+    rows:
+      type: integer
+      label: "Number of rows"
+    layout_preset:
+      type: string
+      label: "Layout preset"
+      constraints:
+        Choice:
+          - standard
+          - compact
+          - hero
+          - featured
+          - horizontal
+    image_position:
+      type: string
+      label: "Image position"
+      constraints:
+        Choice:
+          - top
+          - left
+          - right
+          - bottom
+          - overlay
+          - none
+    card_gap:
+      type: string
+      label: "Card spacing"
+      constraints:
+        Choice:
+          - none
+          - small
+          - medium
+          - large
+          - xlarge
+    card_radius:
+      type: string
+      label: "Card border radius"
+      constraints:
+        Choice:
+          - none
+          - small
+          - medium
+          - large
+          - pill
+    filters:
+      type: mapping
+      label: "Filter settings"
+      mapping:
+        sort_mode:
+          type: string
+          label: "Sort mode"
+        alpha_field:
+          type: string
+          label: "Alphabetical sort field"
+        direction:
+          type: string
+          label: "Sort direction"
+    bundle_fields:
+      type: sequence
+      label: "Bundle fields configuration"
+      sequence:
+        type: sequence
+        label: "Fields for bundle"
+        sequence:
+          type: string
+          label: "Field name"
+    css_classes:
+      type: sequence
+      label: "CSS classes per bundle"
+      sequence:
+        type: string
+        label: "CSS class"
+    image_settings:
+      type: sequence
+      label: "Image settings per bundle"
+      sequence:
+        type: mapping
+        label: "Image setting"
+        mapping:
+          card_gap:
+            type: string
+            label: "Card gap"
+          card_radius:
+            type: string
+            label: "Card radius"

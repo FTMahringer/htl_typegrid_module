@@ -49,8 +49,21 @@ final class FieldPickerForm extends FormBase
         if ($def->getFieldStorageDefinition()->isBaseField()) {
           continue;
         }
+
+        // Exclude HTL TypeGrid internal fields from selection.
+        $htlSkip = [
+          'field_htl_grid_image_style',
+          'field_htl_grid_custom_width',
+          'field_htl_grid_custom_height',
+          'field_htl_grid_pinned',
+        ];
+        if (in_array($name, $htlSkip, TRUE)) {
+          continue;
+        }
         $label = (string) ($def->getLabel() ?? $name);
-        $options[$name] = $label . " ($name)";
+        $type = $def->getType();
+
+        $options[$name] = $label . " ($name) [" . $type . "]";
       }
       asort($options);
     }

@@ -4,53 +4,71 @@ declare(strict_types=1);
 
 namespace Drupal\htl_typegrid\Form\Section;
 
+/**
+ * Builds the Filters & Sorting section of the Grid block form.
+ */
 final class FilterSection {
 
+  /**
+   * Build the filters section.
+   *
+   * @param array $form
+   *   The form array (by reference).
+   * @param array $config
+   *   Block configuration.
+   */
   public function build(array &$form, array $config): void {
-    $filters    = $config['filters'] ?? [];
-    $sortMode   = $filters['sort_mode'] ?? 'newest';
-    $alphaField = $filters['alpha_field'] ?? 'title';
-    $direction  = $filters['direction'] ?? 'ASC';
+    $filters = $config['filters'] ?? [];
 
     $form['filters'] = [
       '#type' => 'details',
       '#title' => t('Filters & sorting'),
       '#group' => 'settings',
+      '#open' => FALSE,
     ];
 
-    $form['filters']['sort_mode'] = [
+    // Wrapper for side-by-side layout.
+    $form['filters']['row'] = [
+      '#type' => 'container',
+      '#attributes' => [
+        'class' => ['htl-typegrid-form-row'],
+      ],
+    ];
+
+    $form['filters']['row']['sort_mode'] = [
       '#type' => 'select',
       '#title' => t('Sort mode'),
+      '#default_value' => $filters['sort_mode'] ?? 'created',
       '#options' => [
-        'newest' => t('Newest first'),
-        'oldest' => t('Oldest first'),
-        'alpha'  => t('Alphabetical'),
+        'created' => t('Created date'),
+        'changed' => t('Last updated'),
+        'title' => t('Title'),
+        'alpha' => t('Alphabetical (custom field)'),
         'random' => t('Random'),
       ],
-      '#default_value' => $sortMode,
     ];
 
-    $form['filters']['direction'] = [
+    $form['filters']['row']['alpha_field'] = [
+      '#type' => 'textfield',
+      '#title' => t('Sort field'),
+      '#default_value' => $filters['alpha_field'] ?? 'title',
+      '#description' => t('Machine name of the field to sort by.'),
+      '#states' => [
+        'visible' => [
+          ':input[name="settings[filters][row][sort_mode]"]' => ['value' => 'alpha'],
+        ],
+      ],
+    ];
+
+    $form['filters']['row']['direction'] = [
       '#type' => 'select',
       '#title' => t('Direction'),
-      '#options' => ['ASC' => t('ASC'), 'DESC' => t('DESC')],
-      '#default_value' => $direction,
-      '#states' => [
-        'visible' => [
-          ':input[name="settings[filters][sort_mode]"]' => ['value' => 'alpha'],
-        ],
+      '#options' => [
+        'ASC' => t('Ascending'),
+        'DESC' => t('Descending'),
       ],
-    ];
-
-    $form['filters']['alpha_field'] = [
-      '#type' => 'textfield',
-      '#title' => t('Alphabetic field'),
-      '#default_value' => $alphaField,
-      '#states' => [
-        'visible' => [
-          ':input[name="settings[filters][sort_mode]"]' => ['value' => 'alpha'],
-        ],
-      ],
+      '#default_value' => $filters['direction'] ?? 'DESC',
     ];
   }
+
 }

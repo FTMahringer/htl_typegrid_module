@@ -115,9 +115,110 @@
   }
 
   /**
+   * Creates image style configuration fields for grid nodes.
+   *
+   * @param string $bundle
+   *   The node bundle to add fields to.
+   */
+  function _htl_typegrid_create_image_style_fields(string $bundle): void {
+    $field_storage_config = \Drupal::service('entity_type.manager')->getStorage('field_storage_config');
+    $field_config = \Drupal::service('entity_type.manager')->getStorage('field_config');
+
+    // 1) Field Storage for Image Style Dropdown
+    $style_field_name = 'field_htl_grid_image_style';
+    if (!$field_storage_config->load('node.' . $style_field_name)) {
+      \Drupal\field\Entity\FieldStorageConfig::create([
+        'field_name' => $style_field_name,
+        'entity_type' => 'node',
+        'type' => 'list_string',
+        'cardinality' => 1,
+        'settings' => [
+          'allowed_values_function' => 'htl_typegrid_image_style_allowed_values',
+        ],
+      ])->save();
+    }
+
+    // 2) Field Storage for Pinned
+    $pinned_field_name = 'field_htl_grid_pinned';
+    if (!$field_storage_config->load('node.' . $pinned_field_name)) {
+      \Drupal\field\Entity\FieldStorageConfig::create([
+        'field_name' => $pinned_field_name,
+        'entity_type' => 'node',
+        'type' => 'boolean',
+        'cardinality' => 1,
+      ])->save();
+    }
+
+    // 3) Custom height field removed (no longer used)
+
+    // 4) Add field instances to the bundle
+    if (!$field_config->load('node.' . $bundle . '.' . $style_field_name)) {
+      \Drupal\field\Entity\FieldConfig::create([
+        'field_name' => $style_field_name,
+        'entity_type' => 'node',
+        'bundle' => $bundle,
+        'label' => t('Grid Image Style'),
+        'description' => t('Select which image style to use when this node appears in the HTL Grid. Choose "Default" to use the grid\'s default style, or "Custom" to specify exact dimensions.'),
+        'required' => FALSE,
+        'default_value' => [['value' => 'default']],
+      ])->save();
+    }
+
+    if (!$field_config->load('node.' . $bundle . '.' . $pinned_field_name)) {
+      \Drupal\field\Entity\FieldConfig::create([
+        'field_name' => $pinned_field_name,
+        'entity_type' => 'node',
+        'bundle' => $bundle,
+        'label' => t('Pin for TypeGrid'),
+        'description' => t('When checked, this content will appear in the Pinned TypeGrid block and will be prioritized in the regular TypeGrid.'),
+        'required' => FALSE,
+        'default_value' => [['value' => 0]],
+        'settings' => [
+          'on_label' => t('Pinned'),
+          'off_label' => t('Not pinned'),
+        ],
+      ])->save();
+    }
+
+    // Custom height field instance removed (no longer used)
+
+    // 5) Configure form display
+    $form_display = \Drupal::service('entity_display.repository')->getFormDisplay('node', $bundle, 'default');
+    if ($form_display) {
+      $form_display
+        ->setComponent($pinned_field_name, [
+          'type' => 'boolean_checkbox',
+          'weight' => 99,
+          'settings' => [
+            'display_label' => TRUE,
+          ],
+        ])
+        ->setComponent($style_field_name, [
+          'type' => 'options_select',
+          'weight' => 100,
+        ])
+        ->save();
+    }
+  }
+
+  /**
   * Implements hook_uninstall().
   */
   function htl_typegrid_uninstall(): void {
     // Nur eigene Config löschen (Medien/Datei bleiben bestehen, um Referenzen nicht zu brechen).
     \Drupal::configFactory()->getEditable('htl_typegrid.settings')->delete();
+
+    // Delete field storages (this will also delete field instances)
+    $field_storage_config = \Drupal::service('entity_type.manager')->getStorage('field_storage_config');
+    $fields_to_delete = [
+      'field_htl_grid_image_style',
+      'field_htl_grid_pinned',
+    ];
+
+    foreach ($fields_to_delete as $field_name) {
+      $field_storage = $field_storage_config->load('node.' . $field_name);
+      if ($field_storage) {
+        $field_storage->delete();
+      }
+    }
   }

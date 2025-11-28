@@ -1,20 +1,19 @@
-{# templates/htl-grid-block.html.twig #}
+{# templates/htl-grid-pinned-block.html.twig #}
 
 {# Debug info - uncomment to enable debugging #}
 {#
 <div class="htl-grid-debug">
-  <strong>Debug Info:</strong><br>
+  <strong>Pinned Block Debug:</strong><br>
   Cards: {{ cards|length }}<br>
   Bundle: {{ config.bundle|default('none') }}<br>
   Columns: {{ columns }}, Rows: {{ rows }}<br>
   Layout Preset: {{ config.layoutPreset|default('standard') }}<br>
-  Image Position: {{ config.imagePosition|default('top') }}<br>
-  Config Fields: {{ config.fields|length|default(0) }}
+  Image Position: {{ config.imagePosition|default('top') }}
 </div>
 #}
 
 {% set cols = columns|default(3) %}
-{% set total_slots = (rows|default(2)) * cols %}
+{% set total_slots = (rows|default(1)) * cols %}
 {% set layout_preset = config.layoutPreset|default('standard') %}
 {% set image_position = config.imagePosition|default('top') %}
 {% set card_gap = config.imageSettings.card_gap|default('medium') %}
@@ -23,20 +22,18 @@
 {# Build grid CSS classes #}
 {% set grid_classes = [
   'htl-grid',
+  'htl-grid--pinned',
   'htl-grid--' ~ layout_preset,
   'htl-grid--image-' ~ image_position,
   'htl-grid--gap-' ~ card_gap,
   'htl-grid--radius-' ~ card_radius
 ] %}
 
-<div class="{{ grid_classes|join(' ') }}" style="--cols: {{ cols }}; --ft-grid-cols: {{ cols }}; --ft-grid-rows: {{ rows|default(2) }};">
+{% if cards|length > 0 %}
+<div class="{{ grid_classes|join(' ') }}" style="--cols: {{ cols }}; --ft-grid-cols: {{ cols }}; --ft-grid-rows: {{ rows|default(1) }};">
   {% for card in cards|slice(0, total_slots) %}
-    {# Debug: Uncomment to see card index and classes
-    <!-- Card {{ loop.index0 }}: first={{ loop.first ? 'YES' : 'NO' }}, preset={{ layout_preset }} -->
-    #}
-
     {# Build card CSS classes based on index and preset #}
-    {% set card_classes = ['htl-card', 'htl-card--image-' ~ image_position] %}
+    {% set card_classes = ['htl-card', 'htl-card--pinned', 'htl-card--image-' ~ image_position] %}
 
     {# Add preset-specific classes - use loop.first for first card #}
     {% if layout_preset == 'hero' and loop.first %}
@@ -62,6 +59,10 @@
 
     <article class="{{ card_classes|join(' ') }}">
 
+
+
+
+
       {# Card inner wrapper for horizontal layouts #}
       <div class="htl-card__inner">
 
@@ -86,7 +87,7 @@
           {% else %}
             {# Placeholder for cards without images #}
             <div class="htl-card__media-placeholder">
-              <span aria-hidden="true">📰</span>
+              <span aria-hidden="true">📌</span>
             </div>
           {% endif %}
         {% endif %}
@@ -94,16 +95,10 @@
         {# CONTENT SECTION #}
         <div class="htl-card__content">
 
-
+          {# Title #}
           <h3 class="htl-card__title">
-
             {{ card.title }}
-
-            {% if card.pinned %}
-              <span class="htl-card__pinned-label" style="display:inline-block; margin-left:0.5rem; padding:0.1rem 0.4rem; background:#FDE68A; color:#111827; border-radius:4px; font-size:0.75rem; font-weight:700; line-height:1; vertical-align:middle;">Pinned</span>
-            {% endif %}
           </h3>
-
 
           {# META FIELDS (date, teaser, custom fields, etc.) #}
           {% if card.metaItems is not empty %}
@@ -130,17 +125,6 @@
                 {% endif %}
               {% endfor %}
             </div>
-          {% elseif card.meta is not empty %}
-            {# Support old 'meta' key for backwards compatibility #}
-            <div class="htl-card__meta">
-              {% for row in card.meta %}
-                {% if row is iterable and row.value is defined %}
-                  <div class="htl-card__meta-row {{ row.class|default('') }}">
-                    {{ row.value }}
-                  </div>
-                {% endif %}
-              {% endfor %}
-            </div>
           {% endif %}
 
         </div>
@@ -160,18 +144,19 @@
 
       </div>
 
-      {# Overlay link (makes entire card clickable) - placed at end so content is above it in DOM #}
+      {# Overlay link (makes entire card clickable) #}
       {% if card.url %}
         <a href="{{ card.url }}"
            class="htl-card__overlay"
-           aria-label="Read more: {{ card.title }}"></a>
+           aria-label="{{ 'Read more: @title'|t({'@title': card.title}) }}"></a>
       {% endif %}
 
     </article>
-  {% else %}
-    {# No cards found #}
-    <div class="htl-grid__empty">
-      <p>No content available. Please configure the block and select fields.</p>
-    </div>
   {% endfor %}
 </div>
+{% else %}
+  {# No pinned content message - can be styled or hidden via CSS #}
+  <div class="htl-grid--pinned htl-grid__empty htl-grid__empty--pinned">
+    <p>{{ 'No pinned content available.'|t }}</p>
+  </div>
+{% endif %}

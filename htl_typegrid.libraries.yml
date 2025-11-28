@@ -2,3 +2,13 @@ grid:
   css:
     theme:
       css/htl-grid.css: {}
+  js:
+    js/grid-cards.js: {}
+  dependencies:
+    - core/drupal
+    - core/once
+
+admin:
+  css:
+    theme:
+      css/htl-typegrid-admin.css: {}
