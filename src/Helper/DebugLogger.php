@@ -57,14 +57,14 @@ final class DebugLogger {
   /**
    * Logs a message at the given level when logging is enabled.
    *
-   * @param string $level
-   *   PSR-3/RFC string level (e.g., 'debug', 'info', 'notice', 'warning', 'error', 'critical').
+   * @param int|string $level
+   *   PSR-3/RFC level constant (int) or string level (e.g., 'debug', 'info', 'notice', 'warning', 'error', 'critical').
    * @param string $message
    *   The message to log.
    * @param array $context
    *   Context variables for placeholder replacements.
    */
-  public static function log(string $level, string $message, array $context = []): void {
+  public static function log(int|string $level, string $message, array $context = []): void {
     if (!self::isEnabled()) {
       return;
     }
@@ -112,20 +112,28 @@ final class DebugLogger {
   /**
    * Normalize a provided level to a valid RFC level string.
    */
-  private static function normalizeLevel(string $level): string {
-    $valid = [
-      RfcLogLevel::EMERGENCY,
-      RfcLogLevel::ALERT,
-      RfcLogLevel::CRITICAL,
-      RfcLogLevel::ERROR,
-      RfcLogLevel::WARNING,
-      RfcLogLevel::NOTICE,
-      RfcLogLevel::INFO,
-      RfcLogLevel::DEBUG,
+  private static function normalizeLevel(int|string $level): string {
+    // Map of RFC integer constants to string levels
+    $intToString = [
+      RfcLogLevel::EMERGENCY => 'emergency',
+      RfcLogLevel::ALERT => 'alert',
+      RfcLogLevel::CRITICAL => 'critical',
+      RfcLogLevel::ERROR => 'error',
+      RfcLogLevel::WARNING => 'warning',
+      RfcLogLevel::NOTICE => 'notice',
+      RfcLogLevel::INFO => 'info',
+      RfcLogLevel::DEBUG => 'debug',
     ];
 
+    // If it's an integer, convert to string
+    if (is_int($level)) {
+      return $intToString[$level] ?? 'notice';
+    }
+
+    // If it's a string, validate it
+    $valid = ['emergency', 'alert', 'critical', 'error', 'warning', 'notice', 'info', 'debug'];
     $lower = strtolower($level);
-    return in_array($lower, $valid, true) ? $lower : RfcLogLevel::NOTICE;
+    return in_array($lower, $valid, true) ? $lower : 'notice';
   }
 
 }

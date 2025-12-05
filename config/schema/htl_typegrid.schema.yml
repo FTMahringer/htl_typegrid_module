@@ -8,6 +8,57 @@ htl_typegrid.settings:
     image_style:
       type: string
       label: "Card image style"
+    enabled_view_pages:
+      type: sequence
+      label: "Enabled view pages"
+      sequence:
+        type: string
+        label: "Bundle machine name"
+    filters_enabled_bundles:
+      type: sequence
+      label: "Bundles with filters enabled on full view"
+      sequence:
+        type: string
+        label: "Bundle machine name"
+    items_per_page:
+      type: integer
+      label: "Items per page on view pages"
+    default_view_mode:
+      type: string
+      label: "Default view mode"
+    full_view_columns:
+      type: integer
+      label: "Full view cards per row"
+    show_filters:
+      type: boolean
+      label: "Show filters globally"
+    show_view_toggle:
+      type: boolean
+      label: "Show grid/list toggle"
+    api_enabled:
+      type: boolean
+      label: "Enable REST API"
+    api_max_limit:
+      type: integer
+      label: "API max limit"
+    api_allow_create:
+      type: boolean
+      label: "Allow API create"
+    api_allow_update:
+      type: boolean
+      label: "Allow API update"
+    api_allow_delete:
+      type: boolean
+      label: "Allow API delete"
+    debug_logging:
+      type: boolean
+      label: "Enable debug logging"
+    show_view_all_link:
+      type: boolean
+      label: "Show view all link"
+    view_all_text:
+      type: string
+      label: "View all link text"
 
 block.settings.htl_typegrid_block:
   type: block_settings
