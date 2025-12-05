@@ -3,7 +3,7 @@ type: module
 description: "Grid-Block with Cards"
 package: HTL
 core_version_requirement: ^11
-version: 3.0.0
+version: 3.0.1
 
 dependencies:
   - drupal:media
