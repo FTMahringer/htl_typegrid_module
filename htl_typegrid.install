@@ -149,9 +149,20 @@
       ])->save();
     }
 
-    // 3) Custom height field removed (no longer used)
+    // 3) Field Storage for Show in TypeGrid
+    $show_field_name = 'field_htl_grid_show';
+    if (!$field_storage_config->load('node.' . $show_field_name)) {
+      \Drupal\field\Entity\FieldStorageConfig::create([
+        'field_name' => $show_field_name,
+        'entity_type' => 'node',
+        'type' => 'boolean',
+        'cardinality' => 1,
+      ])->save();
+    }
 
-    // 4) Add field instances to the bundle
+    // 4) Custom height field removed (no longer used)
+
+    // 5) Add field instances to the bundle
     if (!$field_config->load('node.' . $bundle . '.' . $style_field_name)) {
       \Drupal\field\Entity\FieldConfig::create([
         'field_name' => $style_field_name,
@@ -180,12 +191,35 @@
       ])->save();
     }
 
+    if (!$field_config->load('node.' . $bundle . '.' . $show_field_name)) {
+      \Drupal\field\Entity\FieldConfig::create([
+        'field_name' => $show_field_name,
+        'entity_type' => 'node',
+        'bundle' => $bundle,
+        'label' => t('Show in TypeGrid'),
+        'description' => t('When checked, this content will be displayed in the TypeGrid. Uncheck to hide from all TypeGrid blocks.'),
+        'required' => FALSE,
+        'default_value' => [['value' => 1]],
+        'settings' => [
+          'on_label' => t('Show'),
+          'off_label' => t('Hidden'),
+        ],
+      ])->save();
+    }
+
     // Custom height field instance removed (no longer used)
 
-    // 5) Configure form display
+    // 6) Configure form display
     $form_display = \Drupal::service('entity_display.repository')->getFormDisplay('node', $bundle, 'default');
     if ($form_display) {
       $form_display
+        ->setComponent($show_field_name, [
+          'type' => 'boolean_checkbox',
+          'weight' => 98,
+          'settings' => [
+            'display_label' => TRUE,
+          ],
+        ])
         ->setComponent($pinned_field_name, [
           'type' => 'boolean_checkbox',
           'weight' => 99,
@@ -213,6 +247,7 @@
     $fields_to_delete = [
       'field_htl_grid_image_style',
       'field_htl_grid_pinned',
+      'field_htl_grid_show',
     ];
 
     foreach ($fields_to_delete as $field_name) {

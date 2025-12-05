@@ -36,12 +36,26 @@ final class GridQueryService {
   public function loadNodes(GridConfig $config): array {
     $storage = $this->entityTypeManager->getStorage('node');
 
+    // Calculate total available grid cells
+    $totalCells = $config->rows * $config->columns;
+
+    // Load more nodes than we might need, then filter based on cell consumption
+    // We load extra to account for hero/featured cards taking multiple cells
+    $maxNodesToLoad = $totalCells; // Worst case: all standard cards
+
     // Basic query based on bundle
     $query = $storage->getQuery()
       ->accessCheck(TRUE)
       ->condition('status', 1)
       ->condition('type', $config->bundle)
-      ->range(0, $config->rows * $config->columns);
+      ->range(0, $maxNodesToLoad);
+
+    // Only show nodes that have the "Show in TypeGrid" field checked
+    // Use an OR group to include nodes that either have the field set to 1,
+    // or don't have the field at all (backwards compatibility)
+    if ($this->fieldManager->hasField($config->bundle, GridFieldManager::FIELD_SHOW)) {
+      $query->condition(GridFieldManager::FIELD_SHOW, 1);
+    }
 
     // Sort modes - match the form options in FilterSection
     $direction = $config->filters->direction;
@@ -94,13 +108,58 @@ final class GridQueryService {
       shuffle($nodes);
     }
 
-    // Convert to DTOs
+    // Convert to DTOs and limit based on grid cell consumption
     $result = [];
+    $cellsUsed = 0;
+    $totalCells = $config->rows * $config->columns;
+    $index = 0;
+
     foreach ($nodes as $node) {
+      // Calculate how many cells this card will consume
+      $cellsForThisCard = $this->calculateCardCells($config, $index);
+
+      // Check if adding this card would exceed our grid capacity
+      if ($cellsUsed + $cellsForThisCard > $totalCells) {
+        break;
+      }
+
       $result[] = $this->buildGridNode($node, $config);
+      $cellsUsed += $cellsForThisCard;
+      $index++;
     }
 
     return $result;
+  }
+
+  /**
+   * Calculate how many grid cells a card at a given index will consume.
+   *
+   * @param GridConfig $config
+   *   The grid configuration.
+   * @param int $index
+   *   The card index (0-based).
+   *
+   * @return int
+   *   Number of grid cells this card will occupy.
+   */
+  private function calculateCardCells(GridConfig $config, int $index): int {
+    // Hero preset: first card spans 2x2 = 4 cells
+    if ($config->layoutPreset === GridConfig::PRESET_HERO && $index === 0) {
+      // Hero card is 2x2, but we need to ensure we have at least 2 columns and 2 rows
+      if ($config->columns >= 2 && $config->rows >= 2) {
+        return 4;
+      }
+      // If grid is too small, hero card falls back to single cell
+      return 1;
+    }
+
+    // Featured preset: first card spans full width (all columns) x 1 row
+    if ($config->layoutPreset === GridConfig::PRESET_FEATURED && $index === 0) {
+      return $config->columns;
+    }
+
+    // All other cards take 1 cell
+    return 1;
   }
 
   private function buildGridNode($node, GridConfig $config): GridNode {
@@ -169,12 +228,33 @@ final class GridQueryService {
       image: $imageFieldValue,
       imageStyleSettings: $imageStyleSettings,
       pinned: $this->fieldManager->isNodePinned($node),
+      shown: $this->fieldManager->isNodeShown($node),
     );
 
+
+  }
+
+
+
+  /**
+
+   * Public wrapper: build a GridNode DTO from a loaded node entity.
+   *
+   * @param \Drupal\node\NodeInterface $node
+   *   The node entity to transform.
+   * @param \Drupal\htl_typegrid\Model\GridConfig $config
+   *   The grid configuration used for field/image extraction.
+   *
+   * @return \Drupal\htl_typegrid\Model\GridNode
+   *   The populated DTO.
+   */
+  public function buildNodeDtoFromEntity($node, GridConfig $config): GridNode {
+    return $this->buildGridNode($node, $config);
   }
 
   /**
    * Finds the first image field on a node.
+
    *
    * @param \Drupal\node\NodeInterface $node
    *   The node to search.
@@ -209,6 +289,11 @@ final class GridQueryService {
       ->condition(GridFieldManager::FIELD_PINNED, 1)
       ->sort('created', 'DESC')
       ->range(0, $limit);
+
+    // Only show pinned nodes that also have "Show in TypeGrid" checked
+    if ($this->fieldManager->hasField($bundle, GridFieldManager::FIELD_SHOW)) {
+      $query->condition(GridFieldManager::FIELD_SHOW, 1);
+    }
 
     $nids = $query->execute();
     if (!$nids) {

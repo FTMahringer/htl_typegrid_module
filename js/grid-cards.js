@@ -3,12 +3,12 @@
  * Makes HTL Grid cards clickable while preserving internal link functionality.
  */
 
-(function (Drupal, once) {
+((Drupal, once) => {
   /**
    * Makes cards clickable while allowing links inside to work normally.
    */
   Drupal.behaviors.htlGridCards = {
-    attach: function (context) {
+    attach: (context) => {
       // Find all cards with overlay links
       const cards = once("htl-grid-card", ".htl-card", context);
 

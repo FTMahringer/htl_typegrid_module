@@ -64,10 +64,11 @@ final class LayoutSection {
 
     $form['layout']['layout_row']['columns'] = [
       '#type' => 'number',
-      '#title' => t('Columns'),
+      '#title' => t('Cards per row'),
       '#default_value' => (int) ($config['columns'] ?? 3),
-      '#min' => 1,
+      '#min' => 3,
       '#max' => 6,
+      '#description' => t('How many cards should be shown in one row (3–6).'),
     ];
 
     $form['layout']['layout_row']['rows'] = [

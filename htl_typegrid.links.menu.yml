@@ -1,0 +1,6 @@
+htl_typegrid.settings:
+  title: 'HTL TypeGrid'
+  description: 'Configure TypeGrid view pages, REST API, and display settings.'
+  route_name: htl_typegrid.settings
+  parent: system.admin_config_content
+  weight: 10

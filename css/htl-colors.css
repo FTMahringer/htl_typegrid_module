@@ -1,0 +1,109 @@
+/* ============================================================================
+   HTL TypeGrid – Compact Color Tokens
+   ----------------------------------------------------------------------------
+   This minimal set of CSS variables centralizes the colors used by the module.
+   Keep it pragmatic: one brand color, a few neutrals, and a handful of status
+   colors. All module CSS should reference only these variables.
+
+   HOW TO USE (examples):
+     color: var(--htl-text);
+     background: var(--htl-bg);
+     border-color: var(--htl-border);
+     box-shadow: 0 1px 3px var(--htl-card-shadow);
+     outline: 3px solid color-mix(in srgb, var(--htl-outline) 30%, transparent);
+     background-image: var(--htl-gradient-badge);
+
+   TIP:
+   - Adjust the values below to re-theme the entire module.
+   - Dark mode overrides live in a single media query at the bottom.
+   ============================================================================ */
+
+:root {
+  /* Neutrals */
+  --htl-text: #111827; /* main text */
+  --htl-text-muted: #6b7280; /* secondary text */
+  --htl-bg: #ffffff; /* page background */
+  --htl-surface: #f8fafc; /* panels / cards */
+  --htl-surface-2: #f1f5f9; /* subtle surfaces / hovers */
+  --htl-border: #e5e7eb; /* separators / outlines */
+  --htl-card-shadow: rgba(0, 0, 0, 0.08);
+  --htl-overlay: rgba(0, 0, 0, 0.5);
+
+  /* Brand + Links */
+  --htl-primary: #3b82f6; /* brand blue */
+  --htl-primary-contrast: #ffffff; /* text on brand */
+  --htl-link: #2563eb; /* interactive links */
+  --htl-outline: #2563eb; /* focus rings */
+
+  /* Form controls (kept simple) */
+  --htl-control-bg: #ffffff;
+  --htl-control-border: #d1d5db;
+  --htl-control-hover: #f3f4f6;
+
+  /* Status */
+  --htl-success: #10b981;
+  --htl-warning: #f59e0b;
+  --htl-danger: #ef4444;
+  --htl-info: #06b6d4;
+
+  /* Gradients (for badges/placeholders) */
+  --htl-gradient-badge: linear-gradient(
+    135deg,
+    #f59e0b 0%,
+    #d97706 100%
+  ); /* pinned */
+  --htl-gradient-media-placeholder: linear-gradient(
+    135deg,
+    #4f46e5 0%,
+    #7c3aed 100%
+  ); /* fallback image */
+}
+
+/* ============================================================================
+   Dark Mode – minimal, high-contrast overrides
+   ============================================================================ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Neutrals */
+    --htl-text: #f9fafb;
+    --htl-text-muted: #cbd5e1;
+    --htl-bg: #0f172a; /* slate-900 */
+    --htl-surface: #111827; /* gray-900-ish */
+    --htl-surface-2: #1f2937; /* gray-800-ish */
+    --htl-border: #374151;
+    --htl-card-shadow: rgba(0, 0, 0, 0.35);
+    --htl-overlay: rgba(0, 0, 0, 0.6);
+
+    /* Brand + Links */
+    --htl-primary: #2563eb;
+    --htl-primary-contrast: #ffffff;
+    --htl-link: #60a5fa;
+    --htl-outline: #60a5fa;
+
+    /* Form controls */
+    --htl-control-bg: #0b1220;
+    --htl-control-border: #334155;
+    --htl-control-hover: #1e293b;
+
+    /* Status (slightly brighter for dark) */
+    --htl-success: #34d399;
+    --htl-warning: #fbbf24;
+    --htl-danger: #f87171;
+    --htl-info: #22d3ee;
+
+    /* Gradients */
+    --htl-gradient-badge: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+    --htl-gradient-media-placeholder: linear-gradient(
+      135deg,
+      #4f46e5 0%,
+      #4338ca 100%
+    );
+  }
+}
+
+/* ============================================================================
+   Notes for implementers:
+   - If you need an additional color, consider whether it can be derived from
+     existing tokens (brand, surface, border) before adding new variables.
+   - Keep the set small and semantic; this file should be easy to scan.
+   ============================================================================ */

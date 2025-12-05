@@ -1,3 +1,15 @@
+# Admin settings form
+htl_typegrid.settings:
+  path: "/admin/config/content/htl-typegrid"
+  defaults:
+    _form: '\Drupal\htl_typegrid\Form\TypeGridSettingsForm'
+    _title: "HTL TypeGrid Settings"
+  requirements:
+    _permission: "administer site configuration"
+  options:
+    _admin_route: TRUE
+
+# Field picker form (existing)
 htl_typegrid.field_picker:
   path: "/admin/htl-typegrid/field-picker/{bundle}"
   defaults:
@@ -7,3 +19,96 @@ htl_typegrid.field_picker:
     _permission: "administer blocks"
   options:
     _admin_route: TRUE
+
+# ============================================================================
+# View Page Routes
+# ============================================================================
+
+# Main view page - displays all content of a bundle with filters and pagination
+htl_typegrid.view:
+  path: "/typegrid/{bundle}"
+  defaults:
+    _controller: '\Drupal\htl_typegrid\Controller\GridViewController::view'
+    _title_callback: '\Drupal\htl_typegrid\Controller\GridViewController::title'
+  requirements:
+    _permission: "access content"
+    bundle: "^[a-z_]+$"
+
+# AJAX endpoint for view page (load more, filter updates)
+htl_typegrid.view.ajax:
+  path: "/typegrid/{bundle}/ajax"
+  defaults:
+    _controller: '\Drupal\htl_typegrid\Controller\GridViewController::ajaxLoad'
+  requirements:
+    _permission: "access content"
+    bundle: "^[a-z_]+$"
+  methods: [GET]
+
+# ============================================================================
+# REST API Routes
+# ============================================================================
+
+# List available bundles with TypeGrid configured
+htl_typegrid.api.bundles:
+  path: "/api/typegrid"
+  defaults:
+    _controller: '\Drupal\htl_typegrid\Controller\GridApiController::listBundles'
+  requirements:
+    _permission: "access content"
+  methods: [GET]
+
+# List nodes of a bundle (with filtering and pagination)
+htl_typegrid.api.list:
+  path: "/api/typegrid/{bundle}"
+  defaults:
+    _controller: '\Drupal\htl_typegrid\Controller\GridApiController::list'
+  requirements:
+    _permission: "access content"
+    bundle: "^[a-z_]+$"
+  methods: [GET]
+
+# Create a new node
+htl_typegrid.api.create:
+  path: "/api/typegrid/{bundle}"
+  defaults:
+    _controller: '\Drupal\htl_typegrid\Controller\GridApiController::createNode'
+  requirements:
+    _permission: "access content"
+    _csrf_token: "TRUE"
+    bundle: "^[a-z_]+$"
+  methods: [POST]
+
+# Get a single node
+htl_typegrid.api.get:
+  path: "/api/typegrid/{bundle}/{nid}"
+  defaults:
+    _controller: '\Drupal\htl_typegrid\Controller\GridApiController::get'
+  requirements:
+    _permission: "access content"
+    bundle: "^[a-z_]+$"
+    nid: "^[0-9]+$"
+  methods: [GET]
+
+# Update a node
+htl_typegrid.api.update:
+  path: "/api/typegrid/{bundle}/{nid}"
+  defaults:
+    _controller: '\Drupal\htl_typegrid\Controller\GridApiController::update'
+  requirements:
+    _permission: "access content"
+    _csrf_token: "TRUE"
+    bundle: "^[a-z_]+$"
+    nid: "^[0-9]+$"
+  methods: [PATCH]
+
+# Delete a node
+htl_typegrid.api.delete:
+  path: "/api/typegrid/{bundle}/{nid}"
+  defaults:
+    _controller: '\Drupal\htl_typegrid\Controller\GridApiController::delete'
+  requirements:
+    _permission: "access content"
+    _csrf_token: "TRUE"
+    bundle: "^[a-z_]+$"
+    nid: "^[0-9]+$"
+  methods: [DELETE]

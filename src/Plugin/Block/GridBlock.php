@@ -6,6 +6,7 @@ namespace Drupal\htl_typegrid\Plugin\Block;
 
 use Drupal\Core\Block\BlockBase;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
+use Drupal\Core\Url;
 use Drupal\htl_typegrid\Service\GridQueryService;
 use Drupal\htl_typegrid\Service\GridCardBuilder;
 use Drupal\htl_typegrid\Service\GridConfigFactory;
@@ -111,6 +112,29 @@ final class GridBlock extends BlockBase implements ContainerFactoryPluginInterfa
       );
     }
 
+    // Generate View All URL if enabled in settings
+    $viewAllUrl = NULL;
+    $viewAllText = NULL;
+    $moduleConfig = \Drupal::config('htl_typegrid.settings');
+    $showViewAllLink = $moduleConfig->get('show_view_all_link') ?? TRUE;
+
+    if ($showViewAllLink && $config->bundle) {
+      // Check if view page is enabled for this bundle
+      $enabledBundles = $moduleConfig->get('enabled_view_pages') ?? [];
+      $viewPageEnabled = empty($enabledBundles) || in_array($config->bundle, $enabledBundles, TRUE);
+
+      if ($viewPageEnabled) {
+        try {
+          $viewAllUrl = Url::fromRoute('htl_typegrid.view', ['bundle' => $config->bundle])->toString();
+          $viewAllText = $moduleConfig->get('view_all_text') ?? 'View all';
+        }
+        catch (\Exception $e) {
+          // Route may not exist yet
+          $viewAllUrl = NULL;
+        }
+      }
+    }
+
     // Render-Array fürs Twig-Template
     $build = [
       '#theme'   => 'htl_grid_block',
@@ -118,6 +142,8 @@ final class GridBlock extends BlockBase implements ContainerFactoryPluginInterfa
       '#columns' => $config->columns,
       '#rows'    => $config->rows,
       '#config'  => $config,
+      '#view_all_url' => $viewAllUrl,
+      '#view_all_text' => $viewAllText,
       '#attached' => [
         'library' => [
           'htl_typegrid/grid',

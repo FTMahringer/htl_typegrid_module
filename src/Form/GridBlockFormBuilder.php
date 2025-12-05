@@ -58,10 +58,12 @@ final class GridBlockFormBuilder {
     $values = $form_state->getValues();
     $userInput = $form_state->getUserInput();
 
-    // Debug: Log what we received
-    \Drupal::logger('htl_typegrid')->notice(
+
+    \Drupal\htl_typegrid\Helper\DebugLogger::notice(
       'SUBMIT - values keys: @vkeys, userInput keys: @ukeys',
+
       [
+
         '@vkeys' => implode(', ', array_keys($values)),
         '@ukeys' => implode(', ', array_keys($userInput)),
       ]
@@ -79,8 +81,7 @@ final class GridBlockFormBuilder {
     // FILTERS section
     $filtersInput = $this->extractSection($values, $userInput, 'filters');
 
-    // Debug extracted sections
-    \Drupal::logger('htl_typegrid')->notice(
+    \Drupal\htl_typegrid\Helper\DebugLogger::notice(
       'SUBMIT - Extracted layout keys: @keys',
       ['@keys' => is_array($layout) ? implode(', ', array_keys($layout)) : 'EMPTY']
     );
@@ -128,8 +129,8 @@ final class GridBlockFormBuilder {
       }
     }
 
-    // Debug: Log extracted values
-    \Drupal::logger('htl_typegrid')->notice(
+
+    \Drupal\htl_typegrid\Helper\DebugLogger::notice(
       'SUBMIT - Values: preset=@preset, imgPos=@imgPos, gap=@gap, radius=@radius, cols=@cols, rows=@rows',
       [
         '@preset' => $layoutPreset,
@@ -140,6 +141,7 @@ final class GridBlockFormBuilder {
         '@rows' => $rows,
       ]
     );
+
 
     // Check if bundle has changed
     $bundleChanged = ($bundle !== $oldBundle && $oldBundle !== '');
@@ -184,7 +186,7 @@ final class GridBlockFormBuilder {
     if ($bundle) {
       $added = $this->fieldManager->addImageStyleFieldsToBundle($bundle);
       if ($added) {
-        \Drupal::logger('htl_typegrid')->notice(
+        \Drupal\htl_typegrid\Helper\DebugLogger::notice(
           'Added image style fields to bundle @bundle',
           ['@bundle' => $bundle]
         );
@@ -222,8 +224,8 @@ final class GridBlockFormBuilder {
       }
     }
 
-    // Debug: Log final config
-    \Drupal::logger('htl_typegrid')->notice(
+
+    \Drupal\htl_typegrid\Helper\DebugLogger::notice(
       'FINAL SAVE: bundle=@b, cols=@c, rows=@r, preset=@preset, imgPos=@imgPos',
       [
         '@b' => $config['bundle'],
@@ -238,7 +240,6 @@ final class GridBlockFormBuilder {
     // This ensures the saved config is used on next load, not the tempstore value
     $store = \Drupal::service('tempstore.private')->get('htl_grid');
     $store->delete('selected_bundle');
-
     $block->setConfiguration($config);
   }
 
@@ -270,8 +271,6 @@ final class GridBlockFormBuilder {
     if (isset($userInput[$section]) && is_array($userInput[$section])) {
       return $userInput[$section];
     }
-
     return [];
   }
-
 }

@@ -1,7 +1,10 @@
 grid:
   css:
+    base:
+      css/htl-colors.css: {}
     theme:
       css/htl-grid.css: {}
+
   js:
     js/grid-cards.js: {}
   dependencies:
@@ -12,3 +15,15 @@ admin:
   css:
     theme:
       css/htl-typegrid-admin.css: {}
+
+view_page:
+  css:
+    theme:
+      css/htl-view-page.css: {}
+  js:
+    js/htl-view-page.js: {}
+  dependencies:
+    - core/drupal
+    - core/drupalSettings
+    - core/once
+    - htl_typegrid/grid

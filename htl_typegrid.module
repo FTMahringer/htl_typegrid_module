@@ -22,9 +22,10 @@ function htl_typegrid_theme(array $existing, $type, $theme, $path): array {
         'cards' => [],
         'columns' => 3,
         'rows' => 2,
-
         'filters' => ['sort_mode' => 'created', 'alpha_field' => 'title', 'direction' => 'DESC'],
         'config' => NULL,
+        'view_all_url' => NULL,
+        'view_all_text' => NULL,
       ],
     ],
     'htl_grid_pinned_block' => [
@@ -35,6 +36,35 @@ function htl_typegrid_theme(array $existing, $type, $theme, $path): array {
         'columns' => 3,
         'rows' => 1,
         'config' => NULL,
+      ],
+    ],
+    'htl_grid_view_page' => [
+      'template' => 'htl-grid-view-page',
+      'path' => $path . '/templates',
+      'variables' => [
+        'bundle' => '',
+        'bundle_label' => '',
+        'cards' => [],
+        'total_count' => 0,
+        'current_page' => 1,
+        'total_pages' => 1,
+        'items_per_page' => 12,
+        'view_mode' => 'grid',
+        'filters' => [],
+        'field_options' => [],
+        'taxonomy_filters' => [],
+        'has_more' => FALSE,
+        'show_filters' => TRUE,
+        'show_view_toggle' => TRUE,
+      ],
+    ],
+    'htl_grid_card' => [
+      'template' => 'htl-grid-card',
+      'path' => $path . '/templates',
+      'variables' => [
+        'card' => NULL,
+        'view_mode' => 'grid',
+        'image_position' => 'top',
       ],
     ],
   ];

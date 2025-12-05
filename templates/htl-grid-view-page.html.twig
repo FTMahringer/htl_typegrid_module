@@ -1,0 +1,383 @@
+  {# templates/htl-grid-view-page.html.twig #}
+
+  {# View page for displaying all content of a bundle with filters and pagination #}
+
+
+  {% set current_view_mode = view_mode|default('grid') %}
+
+  {% set card_gap = 'medium' %}
+
+  {% set card_radius = 'medium' %}
+  {% set full_view_columns = full_view_columns|default(3) %}
+
+
+  <div class="htl-view-page" data-bundle="{{ bundle }}" data-view-mode="{{ current_view_mode }}">
+
+    {# Header with title and view toggle #}
+    <header class="htl-view-page__header">
+      <div class="htl-view-page__title-row">
+        <h1 class="htl-view-page__title">{{ bundle_label }}</h1>
+        <span class="htl-view-page__count">{{ total_count }} {{ total_count == 1 ? 'item'|t : 'items'|t }}</span>
+      </div>
+
+      {# View mode toggle (Grid / List) #}
+      {% if show_view_toggle %}
+      <div class="htl-view-page__toggle">
+        <button type="button"
+                class="htl-view-toggle__btn {{ current_view_mode == 'grid' ? 'htl-view-toggle__btn--active' : '' }}"
+                data-view="grid"
+                aria-pressed="{{ current_view_mode == 'grid' ? 'true' : 'false' }}"
+                title="{{ 'Grid view'|t }}">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
+            <rect x="14" y="14" width="7" height="7"></rect>
+          </svg>
+          <span class="visually-hidden">{{ 'Grid view'|t }}</span>
+        </button>
+        <button type="button"
+                class="htl-view-toggle__btn {{ current_view_mode == 'list' ? 'htl-view-toggle__btn--active' : '' }}"
+                data-view="list"
+                aria-pressed="{{ current_view_mode == 'list' ? 'true' : 'false' }}"
+                title="{{ 'List view'|t }}">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="8" y1="6" x2="21" y2="6"></line>
+            <line x1="8" y1="12" x2="21" y2="12"></line>
+            <line x1="8" y1="18" x2="21" y2="18"></line>
+            <line x1="3" y1="6" x2="3.01" y2="6"></line>
+            <line x1="3" y1="12" x2="3.01" y2="12"></line>
+            <line x1="3" y1="18" x2="3.01" y2="18"></line>
+          </svg>
+          <span class="visually-hidden">{{ 'List view'|t }}</span>
+        </button>
+      </div>
+      {% endif %}
+    </header>
+
+    {# Filters section #}
+    {% if show_filters %}
+    <div class="htl-view-page__filters">
+      <form class="htl-filters" method="get" action="" id="htl-view-filters">
+
+        {# Search input #}
+        <div class="htl-filters__group htl-filters__group--search">
+          <label for="htl-filter-search" class="htl-filters__label">{{ 'Search'|t }}</label>
+          <div class="htl-filters__input-wrapper">
+            <input type="text"
+                  id="htl-filter-search"
+                  name="search"
+                  class="htl-filters__input"
+                  value="{{ filters.search|default('') }}"
+                  placeholder="{{ 'Search by title...'|t }}">
+            <svg class="htl-filters__search-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+          </div>
+        </div>
+
+        {# Sort dropdown #}
+        <div class="htl-filters__group htl-filters__group--sort">
+          <label for="htl-filter-sort" class="htl-filters__label">{{ 'Sort by'|t }}</label>
+          <select id="htl-filter-sort" name="sort" class="htl-filters__select">
+            {% for value, label in field_options %}
+              <option value="{{ value }}" {{ filters.sort == value ? 'selected' : '' }}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        {# Sort direction #}
+        <div class="htl-filters__group htl-filters__group--direction">
+          <label for="htl-filter-direction" class="htl-filters__label">{{ 'Order'|t }}</label>
+          <select id="htl-filter-direction" name="direction" class="htl-filters__select">
+            <option value="DESC" {{ filters.direction == 'DESC' ? 'selected' : '' }}>{{ 'Newest first'|t }}</option>
+            <option value="ASC" {{ filters.direction == 'ASC' ? 'selected' : '' }}>{{ 'Oldest first'|t }}</option>
+          </select>
+        </div>
+
+        {# Date range filters #}
+        <div class="htl-filters__group htl-filters__group--date">
+          <label for="htl-filter-date-from" class="htl-filters__label">{{ 'From date'|t }}</label>
+          <input type="date"
+                id="htl-filter-date-from"
+                name="date_from"
+                class="htl-filters__input htl-filters__input--date"
+                value="{{ filters.date_from|default('') }}">
+        </div>
+
+        <div class="htl-filters__group htl-filters__group--date">
+          <label for="htl-filter-date-to" class="htl-filters__label">{{ 'To date'|t }}</label>
+          <input type="date"
+                id="htl-filter-date-to"
+                name="date_to"
+                class="htl-filters__input htl-filters__input--date"
+                value="{{ filters.date_to|default('') }}">
+        </div>
+
+        {# Taxonomy filters (dynamic based on content type) #}
+        {% if taxonomy_filters is not empty %}
+          {% for field_name, tax_data in taxonomy_filters %}
+            <div class="htl-filters__group htl-filters__group--taxonomy">
+              <label for="htl-filter-tax-{{ field_name }}" class="htl-filters__label">{{ tax_data.label }}</label>
+              <select id="htl-filter-tax-{{ field_name }}"
+                      name="taxonomy[{{ field_name }}]"
+                      class="htl-filters__select">
+                <option value="">{{ '- All -'|t }}</option>
+                {% for term_id, term_name in tax_data.options %}
+                  <option value="{{ term_id }}" {{ filters.taxonomy[field_name]|default('') == term_id ? 'selected' : '' }}>
+                    {{ term_name }}
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+          {% endfor %}
+        {% endif %}
+
+        {# Hidden field for view mode #}
+        <input type="hidden" name="view" id="htl-filter-view" value="{{ current_view_mode }}">
+
+        {# Filter actions #}
+        <div class="htl-filters__actions">
+          <button type="submit" class="htl-filters__btn htl-filters__btn--apply">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+            </svg>
+            {{ 'Apply filters'|t }}
+          </button>
+          <a href="?view={{ current_view_mode }}" class="htl-filters__btn htl-filters__btn--reset">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+              <path d="M3 3v5h5"></path>
+            </svg>
+            {{ 'Reset'|t }}
+          </a>
+        </div>
+      </form>
+    </div>
+    {% endif %}
+
+
+        {# Grid classes based on view mode #}
+
+        {% set grid_classes = [
+
+          'htl-grid',
+
+          'htl-grid--standard',
+
+          'htl-grid--image-top',
+
+          'htl-grid--gap-' ~ card_gap,
+
+          'htl-grid--radius-' ~ card_radius,
+
+          current_view_mode == 'list' ? 'htl-grid--list-view' : ''
+
+        ] %}
+
+
+
+        <div class="{{ grid_classes|join(' ')|trim }}" style="--cols: {{ current_view_mode == 'list' ? 1 : full_view_columns }}; --ft-grid-cols: {{ current_view_mode == 'list' ? 1 : full_view_columns }};">
+
+                {% if cards is not empty %}
+                  {% for card in cards %}
+                    {% set card_classes = ['htl-card', 'htl-card--image-top'] %}
+
+                    {% if current_view_mode == 'list' %}
+                      {% set card_classes = card_classes|merge(['htl-card--horizontal']) %}
+                    {% endif %}
+
+                    {% if card.pinned %}
+                      {% set card_classes = card_classes|merge(['htl-card--pinned']) %}
+                    {% endif %}
+
+                    <article class="{{ card_classes|join(' ') }}">
+                      <div class="htl-card__inner">
+
+                        {# Image section #}
+                        {% if card.imageHtml is not empty %}
+                          <figure class="htl-card__media">
+                            {{ card.imageHtml|raw }}
+                          </figure>
+                        {% elseif card.image is not empty %}
+                          <figure class="htl-card__media">
+                            {{ card.image }}
+                          </figure>
+                        {% else %}
+                          <div class="htl-card__media-placeholder">
+                            <span aria-hidden="true">📰</span>
+                          </div>
+                        {% endif %}
+
+                        {# Content section #}
+                        <div class="htl-card__content">
+                          <h3 class="htl-card__title">
+                            {{ card.title }}
+                            {% if card.pinned %}
+                              <span class="htl-card__pinned-badge" title="{{ 'Pinned'|t }}">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                  <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/>
+                                </svg>
+                              </span>
+                            {% endif %}
+                          </h3>
+
+                          {% if card.metaItems is not empty %}
+                            <div class="htl-card__meta">
+                              {% for item in card.metaItems %}
+                                {% if item is not empty %}
+                                  <div class="htl-card__meta-item">
+                                    {% if item is iterable and (item['#type'] is defined or item['#markup'] is defined or item['#theme'] is defined) %}
+                                      {{ item }}
+                                    {% elseif item is iterable and item.value is defined %}
+                                      <div class="htl-card__meta-row {{ item.class|default('') }}">
+                                        {{ item.value }}
+                                      </div>
+                                    {% elseif item starts with '<' %}
+                                      {{ item|raw }}
+                                    {% else %}
+                                      {{ item }}
+                                    {% endif %}
+                                  </div>
+                                {% endif %}
+                              {% endfor %}
+                            </div>
+                          {% endif %}
+                        </div>
+                      </div>
+
+                      {# Overlay link #}
+                      {% if card.url %}
+                        <a href="{{ card.url }}"
+                          class="htl-card__overlay"
+                          aria-label="{{ 'Read more: @title'|t({'@title': card.title}) }}"></a>
+                      {% endif %}
+                    </article>
+                  {% endfor %}
+                {% endif %}
+              </div>
+
+              {# No results #}
+              {% if cards is empty %}
+                <div class="htl-view-page__empty">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    <line x1="8" y1="11" x2="14" y2="11"></line>
+                  </svg>
+                  <p>{{ 'No content found matching your criteria.'|t }}</p>
+                  <a href="?view={{ current_view_mode }}" class="htl-view-page__empty-reset">{{ 'Clear filters'|t }}</a>
+                </div>
+              {% endif %}
+
+          {# Pagination #}
+          {% if total_pages > 1 %}
+            <nav class="htl-view-page__pagination" aria-label="{{ 'Pagination'|t }}">
+              <div class="htl-pagination">
+
+                {# Previous page #}
+                {% if current_page > 1 %}
+                  <a href="?page={{ current_page - 1 }}&search={{ filters.search|url_encode }}&sort={{ filters.sort }}&direction={{ filters.direction }}&date_from={{ filters.date_from }}&date_to={{ filters.date_to }}&view={{ current_view_mode }}"
+                    class="htl-pagination__btn htl-pagination__btn--prev"
+                    aria-label="{{ 'Previous page'|t }}">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="15 18 9 12 15 6"></polyline>
+                    </svg>
+                    {{ 'Previous'|t }}
+                  </a>
+                {% else %}
+                  <span class="htl-pagination__btn htl-pagination__btn--prev htl-pagination__btn--disabled">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="15 18 9 12 15 6"></polyline>
+                    </svg>
+                    {{ 'Previous'|t }}
+                  </span>
+                {% endif %}
+
+                {# Page numbers #}
+                <div class="htl-pagination__pages">
+                  {% set start_page = max(1, current_page - 2) %}
+                  {% set end_page = min(total_pages, current_page + 2) %}
+
+                  {% if start_page > 1 %}
+                    <a href="?page=1&search={{ filters.search|url_encode }}&sort={{ filters.sort }}&direction={{ filters.direction }}&date_from={{ filters.date_from }}&date_to={{ filters.date_to }}&view={{ current_view_mode }}"
+                      class="htl-pagination__page">1</a>
+                    {% if start_page > 2 %}
+                      <span class="htl-pagination__ellipsis">…</span>
+                    {% endif %}
+                  {% endif %}
+
+                  {% for page in start_page..end_page %}
+                    {% if page == current_page %}
+                      <span class="htl-pagination__page htl-pagination__page--current" aria-current="page">{{ page }}</span>
+                    {% else %}
+                      <a href="?page={{ page }}&search={{ filters.search|url_encode }}&sort={{ filters.sort }}&direction={{ filters.direction }}&date_from={{ filters.date_from }}&date_to={{ filters.date_to }}&view={{ current_view_mode }}"
+                        class="htl-pagination__page">{{ page }}</a>
+                    {% endif %}
+                  {% endfor %}
+
+                  {% if end_page < total_pages %}
+                    {% if end_page < total_pages - 1 %}
+                      <span class="htl-pagination__ellipsis">…</span>
+                    {% endif %}
+                    <a href="?page={{ total_pages }}&search={{ filters.search|url_encode }}&sort={{ filters.sort }}&direction={{ filters.direction }}&date_from={{ filters.date_from }}&date_to={{ filters.date_to }}&view={{ current_view_mode }}"
+                      class="htl-pagination__page">{{ total_pages }}</a>
+                  {% endif %}
+                </div>
+
+                {# Next page #}
+                {% if current_page < total_pages %}
+                  <a href="?page={{ current_page + 1 }}&search={{ filters.search|url_encode }}&sort={{ filters.sort }}&direction={{ filters.direction }}&date_from={{ filters.date_from }}&date_to={{ filters.date_to }}&view={{ current_view_mode }}"
+                    class="htl-pagination__btn htl-pagination__btn--next"
+                    aria-label="{{ 'Next page'|t }}">
+                    {{ 'Next'|t }}
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="9 18 15 12 9 6"></polyline>
+                    </svg>
+                  </a>
+                {% else %}
+                  <span class="htl-pagination__btn htl-pagination__btn--next htl-pagination__btn--disabled">
+                    {{ 'Next'|t }}
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="9 18 15 12 9 6"></polyline>
+                    </svg>
+                  </span>
+                {% endif %}
+
+              </div>
+
+              {# Page info #}
+              <div class="htl-pagination__info">
+                {{ 'Page @current of @total'|t({'@current': current_page, '@total': total_pages}) }}
+                •
+                {{ '@count items'|t({'@count': total_count}) }}
+              </div>
+            </nav>
+          {% endif %}
+
+          {# Load more button (alternative to pagination, can be enabled via JS) #}
+          {% if has_more %}
+            <div class="htl-view-page__load-more" id="htl-load-more" style="display: none;">
+              <button type="button" class="htl-load-more__btn" data-page="{{ current_page + 1 }}">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="htl-load-more__icon">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+                {{ 'Load more'|t }}
+                <span class="htl-load-more__spinner" style="display: none;">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="htl-spinner">
+                    <line x1="12" y1="2" x2="12" y2="6"></line>
+                    <line x1="12" y1="18" x2="12" y2="22"></line>
+                    <line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line>
+                    <line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line>
+                    <line x1="2" y1="12" x2="6" y2="12"></line>
+                    <line x1="18" y1="12" x2="22" y2="12"></line>
+                    <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line>
+                    <line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line>
+                  </svg>
+                </span>
+              </button>
+            </div>
+          {% endif %}
+
+        </div>

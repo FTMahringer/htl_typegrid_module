@@ -16,6 +16,8 @@ final class GridNode {
    *   Image style settings derived from the node (e.g., selected style).
    * @param bool $pinned
    *   Whether this node is marked as pinned for TypeGrid.
+   * @param bool $shown
+   *   Whether this node should be shown in TypeGrid (always true when loaded via query).
    */
   public function __construct(
     public readonly int $id,
@@ -26,5 +28,6 @@ final class GridNode {
     public readonly ?GridFieldValue $image = null,
     public readonly array $imageStyleSettings = [],
     public readonly bool $pinned = false,
+    public readonly bool $shown = true,
   ) {}
 }

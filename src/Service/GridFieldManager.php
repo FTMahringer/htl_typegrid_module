@@ -26,6 +26,11 @@ final class GridFieldManager {
    */
   public const FIELD_IMAGE_STYLE = 'field_htl_grid_image_style';
 
+  /**
+   * Field name for the show in grid checkbox.
+   */
+  public const FIELD_SHOW = 'field_htl_grid_show';
+
   public function __construct(
     private readonly EntityTypeManagerInterface $entityTypeManager,
     private readonly EntityDisplayRepositoryInterface $displayRepository,
@@ -54,6 +59,11 @@ final class GridFieldManager {
 
     if (!$this->bundleHasField($bundle, self::FIELD_PINNED)) {
       $this->createPinnedFieldInstance($bundle);
+      $added = true;
+    }
+
+    if (!$this->bundleHasField($bundle, self::FIELD_SHOW)) {
+      $this->createShowFieldInstance($bundle);
       $added = true;
     }
 
@@ -89,6 +99,7 @@ final class GridFieldManager {
   private function ensureFieldStoragesExist(): void {
     $this->ensureStyleFieldStorageExists();
     $this->ensurePinnedFieldStorageExists();
+    $this->ensureShowFieldStorageExists();
   }
 
   /**
@@ -119,6 +130,23 @@ final class GridFieldManager {
     if (!$storage->load('node.' . self::FIELD_PINNED)) {
       FieldStorageConfig::create([
         'field_name' => self::FIELD_PINNED,
+        'entity_type' => 'node',
+        'type' => 'boolean',
+        'cardinality' => 1,
+        'settings' => [],
+      ])->save();
+    }
+  }
+
+  /**
+   * Creates the show in grid checkbox field storage if it doesn't exist.
+   */
+  private function ensureShowFieldStorageExists(): void {
+    $storage = $this->entityTypeManager->getStorage('field_storage_config');
+
+    if (!$storage->load('node.' . self::FIELD_SHOW)) {
+      FieldStorageConfig::create([
+        'field_name' => self::FIELD_SHOW,
         'entity_type' => 'node',
         'type' => 'boolean',
         'cardinality' => 1,
@@ -168,6 +196,28 @@ final class GridFieldManager {
   }
 
   /**
+   * Creates the show in grid checkbox field instance for a bundle.
+   *
+   * @param string $bundle
+   *   The bundle name.
+   */
+  private function createShowFieldInstance(string $bundle): void {
+    FieldConfig::create([
+      'field_name' => self::FIELD_SHOW,
+      'entity_type' => 'node',
+      'bundle' => $bundle,
+      'label' => $this->t('Show in TypeGrid'),
+      'description' => $this->t('When checked, this content will be displayed in the TypeGrid. Uncheck to hide from all TypeGrid blocks.'),
+      'required' => FALSE,
+      'default_value' => [['value' => 1]],
+      'settings' => [
+        'on_label' => $this->t('Show'),
+        'off_label' => $this->t('Hidden'),
+      ],
+    ])->save();
+  }
+
+  /**
    * Configures the form display for the HTL Grid fields.
    *
    * @param string $bundle
@@ -178,6 +228,13 @@ final class GridFieldManager {
 
     if ($form_display) {
       $form_display
+        ->setComponent(self::FIELD_SHOW, [
+          'type' => 'boolean_checkbox',
+          'weight' => 98,
+          'settings' => [
+            'display_label' => TRUE,
+          ],
+        ])
         ->setComponent(self::FIELD_PINNED, [
           'type' => 'boolean_checkbox',
           'weight' => 99,
@@ -204,6 +261,7 @@ final class GridFieldManager {
     $fields = [
       self::FIELD_IMAGE_STYLE,
       self::FIELD_PINNED,
+      self::FIELD_SHOW,
     ];
 
     foreach ($fields as $field_name) {
@@ -252,9 +310,26 @@ final class GridFieldManager {
       return (bool) $node->get(self::FIELD_PINNED)->value;
     }
 
-
     return false;
+  }
 
+  /**
+   * Checks if a node should be shown in the TypeGrid.
+   *
+   * @param \Drupal\node\NodeInterface $node
+   *   The node to check.
+   *
+   * @return bool
+   *   TRUE if the node should be shown, FALSE otherwise.
+   *   Defaults to TRUE if the field doesn't exist (backwards compatibility).
+   */
+  public function isNodeShown($node): bool {
+    if ($node->hasField(self::FIELD_SHOW) && !$node->get(self::FIELD_SHOW)->isEmpty()) {
+      return (bool) $node->get(self::FIELD_SHOW)->value;
+    }
+
+    // Default to TRUE for backwards compatibility (nodes without the field are shown)
+    return true;
   }
 
 
@@ -305,6 +380,7 @@ final class GridFieldManager {
         if (in_array($name, [
           self::FIELD_IMAGE_STYLE,
           self::FIELD_PINNED,
+          self::FIELD_SHOW,
           'field_htl_grid_custom_width',
           'field_htl_grid_custom_height',
         ], true)) {

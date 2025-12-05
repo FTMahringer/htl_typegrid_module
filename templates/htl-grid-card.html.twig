@@ -1,0 +1,110 @@
+{# templates/htl-grid-card.html.twig #}
+{# Standalone card template for AJAX rendering #}
+
+{% set current_view_mode = view_mode|default('grid') %}
+{% set img_position = image_position|default('top') %}
+
+{% set card_classes = ['htl-card', 'htl-card--image-' ~ img_position] %}
+
+{% if current_view_mode == 'list' %}
+  {% set card_classes = card_classes|merge(['htl-card--horizontal']) %}
+{% endif %}
+
+{% if card.pinned %}
+  {% set card_classes = card_classes|merge(['htl-card--pinned']) %}
+{% endif %}
+
+<article class="{{ card_classes|join(' ') }}">
+  <div class="htl-card__inner">
+
+    {# Image section #}
+    {% if img_position != 'none' and img_position != 'bottom' %}
+      {% if card.imageHtml is not empty %}
+        <figure class="htl-card__media">
+          {{ card.imageHtml|raw }}
+          {% if img_position == 'overlay' %}
+            <div class="htl-card__media-overlay"></div>
+          {% endif %}
+        </figure>
+      {% elseif card.image is not empty %}
+        <figure class="htl-card__media">
+          {{ card.image }}
+          {% if img_position == 'overlay' %}
+            <div class="htl-card__media-overlay"></div>
+          {% endif %}
+        </figure>
+      {% else %}
+        <div class="htl-card__media-placeholder">
+          <span aria-hidden="true">📰</span>
+        </div>
+      {% endif %}
+    {% endif %}
+
+    {# Content section #}
+    <div class="htl-card__content">
+      <h3 class="htl-card__title">
+        {{ card.title }}
+        {% if card.pinned %}
+          <span class="htl-card__pinned-badge" title="{{ 'Pinned'|t }}">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/>
+            </svg>
+          </span>
+        {% endif %}
+      </h3>
+
+      {% if card.metaItems is not empty %}
+        <div class="htl-card__meta">
+          {% for item in card.metaItems %}
+            {% if item is not empty %}
+              <div class="htl-card__meta-item">
+                {% if item is iterable and (item['#type'] is defined or item['#markup'] is defined or item['#theme'] is defined) %}
+                  {{ item }}
+                {% elseif item is iterable and item.value is defined %}
+                  <div class="htl-card__meta-row {{ item.class|default('') }}">
+                    {{ item.value }}
+                  </div>
+                {% elseif item starts with '<' %}
+                  {{ item|raw }}
+                {% else %}
+                  {{ item }}
+                {% endif %}
+              </div>
+            {% endif %}
+          {% endfor %}
+        </div>
+      {% elseif card.meta is not empty %}
+        <div class="htl-card__meta">
+          {% for row in card.meta %}
+            {% if row is iterable and row.value is defined %}
+              <div class="htl-card__meta-row {{ row.class|default('') }}">
+                {{ row.value }}
+              </div>
+            {% endif %}
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+
+    {# Image at bottom #}
+    {% if img_position == 'bottom' %}
+      {% if card.imageHtml is not empty %}
+        <figure class="htl-card__media htl-card__media--bottom">
+          {{ card.imageHtml|raw }}
+        </figure>
+      {% elseif card.image is not empty %}
+        <figure class="htl-card__media htl-card__media--bottom">
+          {{ card.image }}
+        </figure>
+      {% endif %}
+    {% endif %}
+
+  </div>
+
+  {# Overlay link #}
+  {% if card.url %}
+    <a href="{{ card.url }}"
+       class="htl-card__overlay"
+       aria-label="{{ 'Read more: @title'|t({'@title': card.title}) }}"></a>
+  {% endif %}
+</article>
